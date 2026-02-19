@@ -47,7 +47,7 @@ from tkinter import ttk
 
 from tktooltip import ToolTip
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 
 
 ############
@@ -1570,7 +1570,12 @@ class MainApp(ttk.Frame):
         # Update the figure in the plot window
         plt.clf()
         plt.close(self.fig)
-       
+
+        self.ax.clear()
+        try:
+            self.ax1.clear()
+        except AttributeError:
+            pass       
 
         if y_res is None:
             self.fig, self.ax = plt.subplots(figsize=(4,3), dpi=100)
@@ -1585,10 +1590,12 @@ class MainApp(ttk.Frame):
         self.ax.plot(xvalues,yvalues)
         if y_adds is not None:
             for y_add in y_adds:
-                self.ax1.plot(xvalues,y_add)        
+                self.ax.plot(xvalues,y_add)        
         for limit in limits:
             if limit is not None:
                 self.ax.axvline(limit)
+        if y_res is not None:
+            self.ax1.plot(xvalues,y_res)        
 
         if logscale:
             plt.gca().set_yscale('log')
