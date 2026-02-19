@@ -10,13 +10,13 @@ SHIVA allows to use PARVATI with a detailed GUI where the user can set all the r
 
 SHIVA requires the following Python packages:
 ```
-parvati >= 1.0.5
+parvati >= 1.0.6
 numpy >= 1.26.x
 astropy >= 7.x.x
 matplotlib >= 3.10
 threading
 python-tk : same version as python
-TkToolTip >= 1.2
+tktooltip >= 3.1
 ```
 
 SHIVA has been tested on Linux (Ubuntu 24.04) and MacOS 26 (Tahoe) so far.
@@ -26,21 +26,31 @@ python shiva.py
 ```
 
 SHIVA is organised in several tabs: a complete analysis from the reduced spectra to the profiles analysis should follow the numbering of the tabs. It is possible to work on a single spectrum or on all the spectra contained in a single directory.
-All the input windows show tooltips with basic information of the input values.
+All the input windows show tooltips with basic information on the input values.
 
 ## Tab 1: Normalisation
 By default, SHIVA look for spectra in the same directory from where it is running, and it will save all the output in a new directory named `shiva_output`. Both the input and output directories may be specified in this tab. The `File/Pattern` entry allows to select a single file to work on or a pattern (using * as a wildcard), in which case SHIVA will work on all the files with the pattern in their names inside the input directory.
 The spectra may be either ASCII or FITS files. The allowed formats are the same required by the `read_spectrum` function of PARVATI:
 - monodimensional FITS files with the flux as the hdu[0].data and the wavelength in the hdu[0].header (CRVAL1, CDELT1, NAXIS1)
-- FITS tables with all the data in hdu[1].data. By default, the wavelength will be read in the first field and the flux in the second field, but the number of the field may be specified. If there are any additional data as S/N and/or echelle order number and/or normalised flux and/or absolute errors, they may be specified here. If given, the S/N supersedes the errors, otherwise the errors will be transformed in S/N (S/N=flux/errors).
+- FITS files in the e2ds format of HARPS/HARPS-N/SOPHIE, with the echelle ordes still unmerged and the wavelength information in the header in the *DRS CAL TH DEG LL and *DRS CAL TH COEFF LLXX keywords
+- FITS tables with all the data in different fields of hdu[1].data OR in different hdus. By default, the wavelength will be read in the first field/hdu and the flux in the second field/hdu, but the number of the field/hdu may be specified. If there are any additional data as S/N and/or echelle order number and/or normalised flux and/or absolute errors, they may be specified here. If given, the S/N supersedes the errors, otherwise the errors will be transformed in S/N (S/N=flux/errors).
 - ASCII files with at least two columns (wavelength and flux), but additional columns with S/N and/or echelle order number and/or normalised flux and/or absolute errors may be specified here. If given, the S/N supersedes the errors, otherwise the errors will be transformed in S/N (S/N=flux/errors). 
 The normalised spectra are saved as FITS table with all the original information plus the normalised flux stored as fields in the hdu[1].data.
 
+The numbers of columns/fields/hdus may be manually specified in the correspective entries OR the instrumentf may be selected from the scroll-down menu, and then the columns/fields/hdus are selected automatically.
+If the instrument is `UNDEF` then the data will be searched with the default options: monodimensional FITS file with CRVAL1, CDELT1, NAXIS1, e2ds FITS file from HARPS/HARPS-N/SOPHIE, FITS table with wavelength and flux in the field/hdu 1 and 2, ASCII file with wavelength and flux in columns 1 and 2.
+
 [!NOTE] 
 - the numbers of the ASCII columns and the FITS fields start with 1, not 0
+- instead, the number of the hdu is the correct one: in the case of different hdu, the Primary hdu[0] is always empty
 - always specify the right wavelength unit: [a]ngstroms, [n]anometers or [m]icrons
 - when working with merged echelle spectra, use the `Subsets` option to achieve a good result
 - when working only with single line extraction, the profile normalisation may be enough, so this step may be skipped or used with the parameters `Subsets=0` and `Degree=0`.
+[!TIP]
+Read the GIANO-B ms1d data with the options: Wave=2, Flux=3, S/N=4, Orders=1
+Read the ESPRESSO S1D data with the options: Wave=1, Flux=3, Errors=4
+Read the ESPRESSO S2D data with the options: Wave=4, Flux=1, Errors=2
+Read the CARMENES (VIS and NIR) data with the options: wavecol=4, fluxcol=1, errcol=3
 
 ## Tab 2: Line Profile
 This tab manages the extraction of single spectroscopic lines or the creation of mean line profiles using either the LSD or CCF methods. See the PARVATI README file for information on the functions `extract_line`, `compute_lsd` and `compute_ccf`.

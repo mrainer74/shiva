@@ -17,13 +17,16 @@ Written by Monica Rainer
 
 """
 
-import os, sys
+import os
 import time
 import datetime
 
 import glob
 import warnings
 
+#import sys
+#sys.path.append("/home/monica/Documents/GitHub/shiva")
+#import test_parvati as pa
 import parvati as pa
 
 import numpy as np
@@ -42,9 +45,9 @@ import tkinter.filedialog as filedialog
 import tkinter as tk
 from tkinter import ttk
 
-from TkToolTip import ToolTip
+from tktooltip import ToolTip
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 
 ############
@@ -85,9 +88,9 @@ class MainApp(ttk.Frame):
         self.norrows = 6
         self.norcols = 17
         # global profile widget
-        self.lsdrows = 12
+        self.lsdrows = 11
         # profile input sub-widget
-        self.lsdrows_input = 4
+        self.lsdrows_input = 3
         # extraction profile sub-widget
         self.extrows = 2
         # creation profile sub-widget
@@ -96,7 +99,7 @@ class MainApp(ttk.Frame):
         self.pltrows = 8
         self.pltcols = 11
         # message widget
-        self.msgrows = 10
+        self.msgrows = 9
         # global line analysis widget
         self.larows = 14
         self.lacols = 17
@@ -113,7 +116,7 @@ class MainApp(ttk.Frame):
         # Fourier transform sub-widget
         self.fourows = 2
         # bottom sub-widget
-        self.bottomrows = 4
+        self.bottomrows = 3
         # whole GUI
         self.all_rows=self.norrows+self.lsdrows
         self.all_columns=self.norcols+self.pltcols+self.lacols
@@ -131,7 +134,14 @@ class MainApp(ttk.Frame):
         for n in range(self.all_rows):
             self.master.rowconfigure(n, weight=1, minsize=1)
         for n in range(self.all_columns):
-            self.master.columnconfigure(n, weight=1, minsize=3)
+            self.master.columnconfigure(n, weight=1, minsize=1)
+        #for n in range(self.norcols):
+        #    self.master.columnconfigure(n, weight=3, minsize=3)
+        #for n in range(self.norcols,self.all_columns):
+        #    self.master.columnconfigure(n, weight=1, minsize=3)
+        #self.master.columnconfigure(0, weight=6, minsize=3)
+        #self.master.columnconfigure(1, weight=1, minsize=3)
+        #self.master.columnconfigure(2, weight=4, minsize=3)
         #self.grid_columnconfigure(0,  weight=1)
         #self.grid_rowconfigure(0,  weight=1)
 
@@ -273,8 +283,9 @@ class MainApp(ttk.Frame):
         # Normalise spectrum
         self.nor_indir = tk.StringVar()     # input folder
         self.nor_spec = tk.StringVar()      # input spectrum OR pattern
-        self.isfits = tk.IntVar()           # are the input spectra FITS?
-        self.isascii = tk.IntVar()          # are the input spectra ASCII?
+        self.option_instr = tk.StringVar()  # choose the spectrograph
+        self.units_default = tk.StringVar()  # wavelength unit (a/n/m)
+        self.wave_frame = tk.StringVar()    # wave reference frame (vacuum/air)
         self.wavecol = tk.IntVar()          # ASCII column/FITS table field of the wavelength
         self.fluxcol = tk.IntVar()          # ASCII column/FITS table field of the flux
         self.snrcol = tk.IntVar()           # ASCII column/FITS table field of the SNR (if any)
@@ -285,6 +296,7 @@ class MainApp(ttk.Frame):
         self.refine = tk.IntVar()           # do we try to refine the normalisation?
         self.norplot= tk.IntVar()           # plot the output
         self.spec_unit = tk.StringVar()     # input spectrum wavelength unit
+        self.spec_vacuum = tk.IntVar()      # input spectrum wavelength is in vacuum
         self.nor_outdir = tk.StringVar()    # folder of the output normalised spectra (if missing, no output saved)
         self.nor_output = tk.StringVar()    # suffix of the output normalised spectra (if missing, no output saved)
         
@@ -309,6 +321,9 @@ class MainApp(ttk.Frame):
         self.mask_invert = tk.IntVar()      # invert the mask (from flux to depths)
         self.mask_spectrum = tk.IntVar()    # use a spectrum as mask (with continuum)
         self.mask_unit = tk.StringVar()     # input mask wavelength unit
+        self.mask_units_default = tk.StringVar() # input mask wavelength unit (default value)
+        self.mask_wave_frame = tk.StringVar()  # mask wave frame combobox
+        self.mask_vacuum = tk.IntVar()      # input mask wavelength is in vacuum
         self.mask_dlow = tk.DoubleVar()     # minimum line depths
         self.mask_dup = tk.DoubleVar()      # maximum line depths
         self.mask_wmin = tk.DoubleVar()     # minimum mask wavelength
@@ -332,6 +347,9 @@ class MainApp(ttk.Frame):
         self.la_indir = tk.StringVar()      # input folder
         self.la_spec = tk.StringVar()       # input (normalised) LSD profile OR pattern
         self.la_outdir = tk.StringVar()     # output folder
+        self.option_limits = tk.StringVar()  # choose the line limits definition
+        self.show_limitlow  = tk.StringVar()    # show either manual limit or 3sigma/vsini
+        self.show_limitup  = tk.StringVar()     # show either manual limit or 3sigma/vsini
         
         # Normalise LSD profiles
         self.limitlow = tk.DoubleVar()      # lower line limit (default self.rvmin + something)
@@ -372,16 +390,23 @@ class MainApp(ttk.Frame):
     def set_entries(self):
 
         # Define default values for functions
+
+        # COMBOBOX
+        # norframe
+        self.option_values = ['UNDEF', 'ESPRESSO S1D', 'ESPRESSO S2D', 'GIANO-B MS1D', 'CARMENES', 'HARPS(N) S1D NEW DRS', 'HARPS(N) S2D NEW DRS'] # list of options for the instruments list -- IMPORTANT: if the list is changed, then change accordingly the function change_cols
+        self.units_values = ['angstroms','nm','micron']
+        self.wave_values = ['Vacuum', 'Air']
+        #prfframe
+        self.mask_units_values = ['angstroms','nm','micron']
+        self.mask_wave_values = ['Vacuum', 'Air']
+        self.option_la_values = ['Limits: Gaussian', 'Limits: Rotational', 'Limits: Manual']
         
         # Normalise spectrum
         self.nor_indir.set(self.basedir)    # input folder
         self.nor_spec.set('*.fits')         # input spectrum OR pattern
-        self.isfits.set(0)                  # are the input spectra FITS?
-        self.isascii.set(0)                 # are the input spectra ASCII?
-        #self.wavecol.set(2)                 # ASCII column/FITS table field of the wavelength
-        #self.fluxcol.set(3)                 # ASCII column/FITS table field of the flux
-        #self.snrcol.set(4)                  # ASCII column/FITS table field of the SNR (if any)
-        #self.echcol.set(1)                  # ASCII column/FITS table field of the echelle orders (if any)
+        self.option_instr.set(self.option_values[0])  # choose the spectrograph
+        self.units_default.set(self.units_values[0])  # wavelength unit (a/n/m)
+        self.wave_frame.set(self.wave_values[0])    # wave reference frame (vacuum/air)
         self.wavecol.set(1)                 # ASCII column/FITS table field of the wavelength
         self.fluxcol.set(2)                 # ASCII column/FITS table field of the flux
         self.snrcol.set(0)                  # ASCII column/FITS table field of the SNR (if any)
@@ -392,7 +417,7 @@ class MainApp(ttk.Frame):
         self.refine.set(0)                  # do we try to refine the normalisation?
         self.norplot.set(1)                 # plot the output
         self.spec_unit.set('a')             # input spectrum wavelength unit
-        #self.spec_unit.set('n')             # input spectrum wavelength unit
+        self.spec_vacuum.set(1)             # input spectrum wavelength is in vacuum
         self.nor_outdir.set(os.path.join(self.basedir,self.outdir))    # folder of the output normalised spectra (if missing, no output saved)
         self.nor_output.set('_nor.fits')    # suffix of the output normalised spectra (if missing, no output saved)
         
@@ -417,6 +442,9 @@ class MainApp(ttk.Frame):
         self.mask_invert.set(0)             # invert the mask (from flux to depths)
         self.mask_spectrum.set(0)           # use a spectrum as mask (with continuum)
         self.mask_unit.set('a')             # input mask wavelength unit
+        self.mask_units_default.set(self.mask_units_values[0])
+        self.mask_wave_frame.set(self.wave_values[0])  # mask wavelength frame (vacuum/air)      
+        self.mask_vacuum.set(1)             # input mask wavelength is in vacuum
         self.mask_dlow.set(0.01)            # minimum line depths
         self.mask_dup.set(1)                # maximum line depths
         self.mask_wmin.set(0)               # minimum mask wavelength
@@ -446,6 +474,9 @@ class MainApp(ttk.Frame):
         else:
             self.la_spec.set('*_ccf.fits')      # input (normalised) LSD profile OR pattern
         self.la_outdir.set(self.nor_outdir.get())     # input folder
+        self.option_limits.set(self.option_la_values[0])  # choose the line limits definition
+        self.show_limitup.set(u'3 \u03c3')     # show either manual limit or 3sigma/vsini
+        self.show_limitlow.set(u'3 \u03c3')    # show either manual limit or 3sigma/vsini
         
         # Normalise LSD profiles 
         self.limitlow.set(-80)              # lower line limit (default self.rvmin + something)
@@ -482,6 +513,7 @@ class MainApp(ttk.Frame):
         
         # Threads
         self.thread_running.set(0)          # check if threads are running
+        
 
     def define_plot(self):
         self.do_plot = False
@@ -513,379 +545,400 @@ class MainApp(ttk.Frame):
         #norcols = 15
         norframe = ttk.LabelFrame(self.master, text='1. Normalisation', padding="3 3 3 3", style='function.TLabelframe')
         norframe.grid(row=0, rowspan=self.norrows, column=0, columnspan=self.norcols, sticky='nsew')        
-        for n in range(self.norrows+1):
+        for n in range(self.norrows):
             norframe.rowconfigure(n, weight=1, minsize=1)
-        for n in range(self.norcols+1):
-            norframe.columnconfigure(n, weight=1, minsize=3)
+        for n in range(self.norcols):
+            norframe.columnconfigure(n, weight=1, minsize=1)
         
         # Profile frame (Lower left)
         #lsdrows = 11
         lsdcols = self.norcols        
         lsdframe = ttk.LabelFrame(self.master, text='2. Line Profile', padding="3 3 3 3", style='function.TLabelframe')
         lsdframe.grid(row=self.norrows, rowspan=self.lsdrows, column=0, columnspan=lsdcols, sticky='nsew')
-        for n in range(self.lsdrows+1):
+        for n in range(self.lsdrows):
             lsdframe.rowconfigure(n, weight=1, minsize=1)
-        for n in range(lsdcols+1):
-            lsdframe.columnconfigure(n, weight=1, minsize=3)
+        for n in range(lsdcols):
+            lsdframe.columnconfigure(n, weight=1, minsize=1)
 
         # 1. Extract a single line (nested in Profile)
         extcols = self.norcols
         extframe = ttk.LabelFrame(lsdframe, text='2a. Single Line Extraction', padding="3 3 3 3", style='subfunction.TLabelframe')
         extframe.grid(row=self.lsdrows_input, rowspan=self.extrows, column=0, columnspan=extcols, sticky='nsew')
-        for n in range(self.extrows+1):
+        for n in range(self.extrows):
             extframe.rowconfigure(n, weight=1, minsize=1)
-        for n in range(extcols+1):
-            extframe.columnconfigure(n, weight=1, minsize=3)        
+        for n in range(extcols):
+            extframe.columnconfigure(n, weight=1, minsize=1)        
         
         # 2. Compute LSD/CCF Profile (nested in Profile)
         prfcols = self.norcols
         prfframe = ttk.LabelFrame(lsdframe, text='2b. Compute LSD or CCF', padding="3 3 3 3", style='subfunction.TLabelframe')
         prfframe.grid(row=self.lsdrows_input+self.extrows, rowspan=self.prfrows, column=0, columnspan=prfcols, sticky='nsew')
-        for n in range(self.prfrows+1):
+        for n in range(self.prfrows):
             prfframe.rowconfigure(n, weight=1, minsize=1)
-        for n in range(prfcols+1):
-            prfframe.columnconfigure(n, weight=1, minsize=3) 
+        for n in range(prfcols):
+            prfframe.columnconfigure(n, weight=1, minsize=1) 
         
         # Plot frame (Upper centre)
         #self.pltrows = 7
         #self.pltcols = 11
         self.pltframe = ttk.LabelFrame(self.master, text='Plots', padding="3 3 3 3", style='function.TLabelframe')
         self.pltframe.grid(row=0, rowspan=self.pltrows, column=self.norcols, columnspan=self.pltcols, sticky='nsew')
-        for n in range(self.pltrows+1):
+        for n in range(self.pltrows):
             self.pltframe.rowconfigure(n, weight=1, minsize=1)
-        for n in range(self.pltcols+1):
-            self.pltframe.columnconfigure(n, weight=1, minsize=3)
+        for n in range(self.pltcols):
+            self.pltframe.columnconfigure(n, weight=1, minsize=1)
         
         # Message frame (Lower centre)
         msgcols = self.pltcols        
         msgframe = ttk.LabelFrame(self.master, text='Messages', padding="3 3 3 3", style='function.TLabelframe')
         msgframe.grid(row=self.pltrows, rowspan=self.msgrows, column=self.norcols, columnspan=msgcols, sticky='nsew')
-        for n in range(self.msgrows+1):
+        for n in range(self.msgrows):
             msgframe.rowconfigure(n, weight=1, minsize=1)
-        for n in range(msgcols+1):
-            msgframe.columnconfigure(n, weight=1, minsize=3)
+        for n in range(msgcols):
+            msgframe.columnconfigure(n, weight=1, minsize=1)
         
         # Line Analysis frame (Upper right)
         laframe = ttk.LabelFrame(self.master, text='3. Line Analysis', padding="3 3 3 3", style='function.TLabelframe')
         laframe.grid(row=0, rowspan=self.larows, column=self.norcols+self.pltcols, columnspan=self.lacols, sticky='nsew')
-        for n in range(self.larows+1):
+        for n in range(self.larows):
             laframe.rowconfigure(n, weight=1, minsize=1)
-        for n in range(self.lacols+1):
-            laframe.columnconfigure(n, weight=1, minsize=3)
+        for n in range(self.lacols):
+            laframe.columnconfigure(n, weight=1, minsize=1)
         
         # 1. Normalise Profile (nested in Line Analysis)
         norprfcols = self.lacols
         norprfframe = ttk.LabelFrame(laframe, text='3a. Profile Normalisation', padding="3 3 3 3", style='subfunction.TLabelframe')
         norprfframe.grid(row=self.larows_input, rowspan=self.norprfrows, column=0, columnspan=norprfcols, sticky='nsew')
-        for n in range(self.norprfrows+1):
+        for n in range(self.norprfrows):
             norprfframe.rowconfigure(n, weight=1, minsize=1)
-        for n in range(norprfcols+1):
-            norprfframe.columnconfigure(n, weight=1, minsize=3)        
+        for n in range(norprfcols):
+            norprfframe.columnconfigure(n, weight=1, minsize=1)        
         
         # 2. Fit Profile (nested in Line Analysis)
         fitcols = self.lacols
         fitframe = ttk.LabelFrame(laframe, text='3b. Profile Fitting', padding="3 3 3 3", style='subfunction.TLabelframe')
         fitframe.grid(row=self.larows_input+self.norprfrows, rowspan=self.fitrows, column=0, columnspan=fitcols, sticky='nsew')
-        for n in range(self.fitrows+1):
+        for n in range(self.fitrows):
             fitframe.rowconfigure(n, weight=1, minsize=1)
-        for n in range(fitcols+1):
-            fitframe.columnconfigure(n, weight=1, minsize=3) 
+        for n in range(fitcols):
+            fitframe.columnconfigure(n, weight=1, minsize=1) 
         
         # 3. Moments (nested in Line Analysis)
         momcols = self.lacols
         momframe = ttk.LabelFrame(laframe, text='3c. Moments', padding="3 3 3 3", style='subfunction.TLabelframe')
         momframe.grid(row=self.larows_input+self.norprfrows+self.fitrows, rowspan=self.momrows, column=0, columnspan=momcols, sticky='nsew')
-        for n in range(self.momrows+1):
+        self.option_mom_var = tk.StringVar(momframe)    # variable type for the OptionMenu
+        for n in range(self.momrows):
             momframe.rowconfigure(n, weight=1, minsize=1)
-        for n in range(momcols+1):
-            momframe.columnconfigure(n, weight=1, minsize=3) 
+        for n in range(momcols):
+            momframe.columnconfigure(n, weight=1, minsize=1) 
         
         # 4. Bisector (nested in Line Analysis)
         biscols = self.lacols
         bisframe = ttk.LabelFrame(laframe, text='3d. Bisector', padding="3 3 3 3", style='subfunction.TLabelframe')
         bisframe.grid(row=self.larows_input+self.norprfrows+self.fitrows+self.momrows, rowspan=self.bisrows, column=0, columnspan=biscols, sticky='nsew')
-        for n in range(self.bisrows+1):
+        self.option_bis_var = tk.StringVar(bisframe)    # variable type for the OptionMenu
+        for n in range(self.bisrows):
             bisframe.rowconfigure(n, weight=1, minsize=1)
-        for n in range(biscols+1):
-            bisframe.columnconfigure(n, weight=1, minsize=3) 
+        for n in range(biscols):
+            bisframe.columnconfigure(n, weight=1, minsize=1) 
         
         # 5. Fourier transform (nested in Line Analysis)
         foucols = self.lacols        
         fouframe = ttk.LabelFrame(laframe, text='3e. Fourier Transform', padding="3 3 3 3", style='subfunction.TLabelframe')
         fouframe.grid(row=self.larows_input+self.norprfrows+self.fitrows+self.momrows+self.bisrows, rowspan=self.fourows, column=0, columnspan=foucols, sticky='nsew')
-        for n in range(self.fourows+1):
+        self.option_fou_var = tk.StringVar(fouframe)    # variable type for the OptionMenu
+        for n in range(self.fourows):
             fouframe.rowconfigure(n, weight=1, minsize=1)
-        for n in range(foucols+1):
-            fouframe.columnconfigure(n, weight=1, minsize=3) 
+        for n in range(foucols):
+            fouframe.columnconfigure(n, weight=1, minsize=1) 
 
 
         # bottom frame (Lower right)
         bottom = ttk.Frame(self.master, padding="3 3 3 3")
         bottomcols = self.lacols
         bottom.grid(row=self.larows,rowspan=self.bottomrows, column=self.norcols+self.pltcols, columnspan=bottomcols, sticky='nsew')
-        for n in range(self.bottomrows+1):
+        for n in range(self.bottomrows):
             bottom.rowconfigure(n, weight=1, minsize=1) #, uniform="a")
-        for n in range(bottomcols+1):
-            bottom.columnconfigure(n, weight=1, minsize=3) #, uniform="a")
+        for n in range(bottomcols):
+            bottom.columnconfigure(n, weight=1, minsize=1) #, uniform="a")
             
             
         # Create all tab, field and buttons
         
         # 1. Normalisation frame
         # 1st row: select directory
-        ttk.Label(norframe, text="Input directory: ").grid(row=0, column=0, columnspan=3, sticky='nsew')
+        ttk.Label(norframe, text="Input folder: ").grid(row=0, column=0, columnspan=4, sticky='nsew')
         self.nor_indir_entry = ttk.Entry(norframe, textvariable=self.nor_indir, width=10)
-        self.nor_indir_entry.grid(row=0, column=3, columnspan=11, sticky='nsew')
+        self.nor_indir_entry.grid(row=0, column=4, columnspan=10, sticky='nsew')
         self.nor_indir_entry.xview(tk.END)
         ttk.Button(norframe, text="Browse", command=self.nor_load_indir, style='browse.TButton').grid(row=0, column=14, columnspan=3, sticky='nsew')
-        ToolTip(self.nor_indir_entry, text='Directory with input FITS/ASCII spectra', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ToolTip(self.nor_indir_entry, msg='Directory with input FITS/ASCII spectra', fg=self.t_tcolor, bg=self.t_background)
 
         # 2nd row: select file/pattern
-        ttk.Label(norframe, text="File/Pattern: ").grid(row=1, column=0, columnspan=3, sticky='nsew')
+        ttk.Label(norframe, text="File/Pattern: ").grid(row=1, column=0, columnspan=4, sticky='nsew')        
         self.nor_spec_entry = ttk.Entry(norframe, textvariable=self.nor_spec, width=10)
-        self.nor_spec_entry.grid(row=1, column=3, columnspan=11, sticky='nsew')
+        self.nor_spec_entry.grid(row=1, column=4, columnspan=10, sticky='nsew')
         self.nor_spec_entry.xview(tk.END)
         ttk.Button(norframe, text="Browse", command=self.nor_load_file, style='browse.TButton').grid(row=1, column=14, columnspan=3, sticky='nsew')
-        ToolTip(self.nor_spec_entry, text='Select pattern OR single FITS/ASCII spectrum', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ToolTip(self.nor_spec_entry, msg='Select pattern OR single FITS/ASCII spectrum', fg=self.t_tcolor, bg=self.t_background)
 
         # 3rd row: set data columns
-        ttk.Label(norframe, text="Cols/Fields: ").grid(row=2, column=0, columnspan=2, sticky='nsew')
-        ttk.Label(norframe, text="Wave: ").grid(row=2, column=2, columnspan=2, sticky='nse')
-        self.wavecol_entry = ttk.Entry(norframe, textvariable=self.wavecol, width=3)
-        self.wavecol_entry.grid(row=2, column=4, sticky='nsw')
-        ToolTip(self.wavecol_entry, text='Column/Field with wavelength (1 = 1st column)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(norframe, text="Flux: ").grid(row=2, column=5, columnspan=2, sticky='nse')
-        self.fluxcol_entry = ttk.Entry(norframe, textvariable=self.fluxcol, width=3)
-        self.fluxcol_entry.grid(row=2, column=7, sticky='nsw')
-        ToolTip(self.fluxcol_entry, text='Column/Field with flux (1 = 1st column)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(norframe, text="S/N: ").grid(row=2, column=8, columnspan=1, sticky='nse')
-        self.snrcol_entry = ttk.Entry(norframe, textvariable=self.snrcol, width=3)
-        self.snrcol_entry.grid(row=2, column=9, sticky='nsw')
-        ToolTip(self.snrcol_entry, text='Column/Field with S/N (1 = 1st column, 0 = no data)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(norframe, text="Errors: ").grid(row=2, column=10, columnspan=2, sticky='nse')
-        self.errcol_entry = ttk.Entry(norframe, textvariable=self.errcol, width=3)
-        self.errcol_entry.grid(row=2, column=12, sticky='nsw')
-        ToolTip(self.errcol_entry, text='Column/Field with errors (1 = 1st column, 0 = no data)\nIf the S/N field is given), then the errors will not be used', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(norframe, text="Orders: ").grid(row=2, column=13, columnspan=2, sticky='nse')
-        self.echcol_entry = ttk.Entry(norframe, textvariable=self.echcol, width=3)
-        self.echcol_entry.grid(row=2, column=15, sticky='nsw')
-        ToolTip(self.echcol_entry, text='Column/Field with echelle orders (1 = 1st column, 0 = no data)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        
+        self.instruments = ttk.Combobox(norframe, state="readonly",\
+                textvariable=self.option_instr,\
+                values=self.option_values, width=12)
+        self.instruments.bind("<<ComboboxSelected>>", self.change_cols)
+        self.instruments.grid(row=2, column=0, columnspan=4, sticky='nsew')
+        
+        ToolTip(self.instruments, msg='Select an instrument to automatically define the columns/fields/hdus of the data.\nUNDEF may be used for:\n- ASCII files with wavelength and flux (2 columns)\n- FITS monodimensional file with the wavelength from CRVAL1, CDELT1, NAXIS1\n- all HARPS/HARPS-N/SOPHIE s1d and e2ds data (old DRS)\n  and GIANO-B s1d data', fg=self.t_tcolor, bg=self.t_background)
+        
+        ttk.Label(norframe, text="Wave:").grid(row=2, column=4, columnspan=2, sticky='nse')
+        self.wavecol_entry = ttk.Entry(norframe, textvariable=self.wavecol, width=4)
+        self.wavecol_entry.grid(row=2, column=6, sticky='nsw')
+        ToolTip(self.wavecol_entry, msg='Column/Field with wavelength (1 = 1st column)\nRead the GIANO-B ms1d data with the options: Wave=2, Flux=3, S/N=4, Orders=1\nRead the ESPRESSO S1D data with the options: Wave=1, Flux=3, Errors=4\nRead the ESPRESSO S2D data with the options: Wave=4, Flux=1, Errors=2', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(norframe, text="Flux:").grid(row=2, column=7, columnspan=2, sticky='nse')
+        self.fluxcol_entry = ttk.Entry(norframe, textvariable=self.fluxcol, width=4)
+        self.fluxcol_entry.grid(row=2, column=9, sticky='nsw')
+        ToolTip(self.fluxcol_entry, msg='Column/Field with flux (1 = 1st column)\nRead the GIANO-B ms1d data with the options: Wave=2, Flux=3, S/N=4, Orders=1\nRead the ESPRESSO S1D data with the options: Wave=1, Flux=3, Errors=4\nRead the ESPRESSO S2D data with the options: Wave=4, Flux=1, Errors=2', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(norframe, text="S/N:").grid(row=2, column=10, sticky='nse')
+        self.snrcol_entry = ttk.Entry(norframe, textvariable=self.snrcol, width=4)
+        self.snrcol_entry.grid(row=2, column=11, sticky='nsw')
+        ToolTip(self.snrcol_entry, msg='Column/Field with S/N (1 = 1st column, 0 = no data)\nRead the GIANO-B ms1d data with the options: Wave=2, Flux=3, S/N=4, Orders=1\nRead the ESPRESSO S1D data with the options: Wave=1, Flux=3, Errors=4\nRead the ESPRESSO S2D data with the options: Wave=4, Flux=1, Errors=2', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(norframe, text="Errs:").grid(row=2, column=12, sticky='nse')
+        self.errcol_entry = ttk.Entry(norframe, textvariable=self.errcol, width=4)
+        self.errcol_entry.grid(row=2, column=13, sticky='nsw')
+        ToolTip(self.errcol_entry, msg='Column/Field with errors (1 = 1st column, 0 = no data)\nIf the S/N field is given), then the errors will not be used\nRead the GIANO-B ms1d data with the options: Wave=2, Flux=3, S/N=4, Orders=1\nRead the ESPRESSO S1D data with the options: Wave=1, Flux=3, Errors=4\nRead the ESPRESSO S2D data with the options: Wave=4, Flux=1, Errors=2', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(norframe, text="Orders:").grid(row=2, column=14, columnspan=2, sticky='nse')
+        self.echcol_entry = ttk.Entry(norframe, textvariable=self.echcol, width=4)
+        self.echcol_entry.grid(row=2, column=16, sticky='nsw')
+        ToolTip(self.echcol_entry, msg='Column/Field with echelle orders (1 = 1st column, 0 = no data)\nRead the GIANO-B ms1d data with the options: Wave=2, Flux=3, S/N=4, Orders=1\nRead the ESPRESSO S1D data with the options: Wave=1, Flux=3, Errors=4\nRead the ESPRESSO S2D data with the options: Wave=4, Flux=1, Errors=2', fg=self.t_tcolor, bg=self.t_background)
 
 
         # 4th row: wavelength units, fit parameters, plot
-        ttk.Label(norframe, text="Units: ").grid(row=3, column=0, columnspan=2, sticky='nsew')
-        self.spec_unit_entry = ttk.Entry(norframe, textvariable=self.spec_unit, width=2)
-        self.spec_unit_entry.grid(row=3, column=2, sticky='nsw')        
-        ToolTip(self.spec_unit_entry, text='Spectral wavelength unit (a=Angstrom, n=nanometer, m=micron)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(norframe, text="Degree: ").grid(row=3, column=4, columnspan=2, sticky='nse')
-        self.degree_entry = ttk.Entry(norframe, textvariable=self.degree, width=3)
-        self.degree_entry.grid(row=3, column=6, columnspan=1, sticky='nsw')
-        ToolTip(self.degree_entry, text='Degree of polynomial for continuum fitting', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(norframe, text="Subsets: ").grid(row=3, column=7, columnspan=2, sticky='nse')
-        self.n_ord_entry = ttk.Entry(norframe, textvariable=self.n_ord, width=3)
-        self.n_ord_entry.grid(row=3, column=9, columnspan=2, sticky='nsw')
-        ToolTip(self.n_ord_entry, text='ONLY without echelle orders given: normalise subsets independently', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(norframe, text="Refine: ").grid(row=3, column=11, columnspan=2, sticky='nse')
-        self.refine_entry = ttk.Checkbutton(norframe, variable=self.refine)#, style="sp.Toolbutton", text="Refine")
-        self.refine_entry.grid(row=3, column=13, sticky='nsw')
-        ToolTip(self.refine_entry, text='Refine normalisation', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(norframe, text="Plot: ").grid(row=3, column=14, columnspan=2, sticky='nse')
-        self.norplot_entry = ttk.Checkbutton(norframe, variable=self.norplot)
+        self.units = ttk.Combobox(norframe, state="readonly",\
+                textvariable=self.units_default,\
+                values=self.units_values, width=10)
+        self.units.bind("<<ComboboxSelected>>", self.change_units)
+        self.units.grid(row=3, column=0, columnspan=4, sticky='nsew')
+        ToolTip(self.units, msg='Select the wavelength unit', fg=self.t_tcolor, bg=self.t_background)
+
+        self.spec_frame = ttk.Combobox(norframe, state="readonly",\
+                textvariable=self.wave_frame,\
+                values=self.wave_values, width=10)
+        self.spec_frame.bind("<<ComboboxSelected>>", self.change_frame)        
+        self.spec_frame.grid(row=3, column=4, columnspan=3, sticky='nsew')
+        ToolTip(self.spec_frame, msg='Select the wavelength frame', fg=self.t_tcolor, bg=self.t_background)     
+        
+        ttk.Label(norframe, text="Degree:").grid(row=3, column=7, columnspan=2, sticky='nse')
+        self.degree_entry = ttk.Entry(norframe, textvariable=self.degree, width=4)
+        self.degree_entry.grid(row=3, column=9, columnspan=1, sticky='nsw')
+        ToolTip(self.degree_entry, msg='Degree of polynomial for continuum fitting', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(norframe, text="Subsets:").grid(row=3, column=10, columnspan=3, sticky='nse')
+        self.n_ord_entry = ttk.Entry(norframe, textvariable=self.n_ord, width=5)
+        self.n_ord_entry.grid(row=3, column=13, sticky='nsw')
+        ToolTip(self.n_ord_entry, msg='ONLY without echelle orders given: normalise subsets independently', fg=self.t_tcolor, bg=self.t_background)
+        #ttk.Label(norframe, text="Refine:", width=8).grid(row=3, column=10, sticky='nse')
+        #self.refine_entry = ttk.Checkbutton(norframe, variable=self.refine, width=3)#, style="sp.Toolbutton", text="Refine")
+        #self.refine_entry.grid(row=3, column=11, sticky='nsw')
+        #ToolTip(self.refine_entry, msg='Refine normalisation', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(norframe, text="Plot:").grid(row=3, column=14, columnspan=2, sticky='nse')
+        self.norplot_entry = ttk.Checkbutton(norframe, variable=self.norplot, width=3)
         self.norplot_entry.grid(row=3, column=16, sticky='nsw')
-        ToolTip(self.norplot_entry, text='Plot normalised spectra', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ToolTip(self.norplot_entry, msg='Plot normalised spectra', fg=self.t_tcolor, bg=self.t_background)
+        
         # 5th row: output directory
-        ttk.Label(norframe, text="Output directory: ").grid(row=4, column=0, columnspan=3, sticky='nsew')
+        ttk.Label(norframe, text="Output folder: ").grid(row=4, column=0, columnspan=4, sticky='nsew')
         self.nor_outdir_entry = ttk.Entry(norframe, textvariable=self.nor_outdir, width=10)
-        self.nor_outdir_entry.grid(row=4, column=3, columnspan=11, sticky='nsew')
+        self.nor_outdir_entry.grid(row=4, column=4, columnspan=10, sticky='nsew')
         self.nor_outdir_entry.xview(tk.END)
         ttk.Button(norframe, text="Browse", command=self.nor_load_outdir, style='browse.TButton').grid(row=4, column=14, columnspan=3, sticky='nsew')
-        ToolTip(self.nor_outdir_entry, text='Output directory', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ToolTip(self.nor_outdir_entry, msg='Output directory', fg=self.t_tcolor, bg=self.t_background)
+        
         # 6th row: output suffix and run normalisation
-        ttk.Label(norframe, text="Suffix: ").grid(row=5, column=0, columnspan=3, sticky='nsew')
+        ttk.Label(norframe, text="Suffix: ").grid(row=5, column=0, columnspan=4, sticky='nsew')
         self.nor_output_entry = ttk.Entry(norframe, textvariable=self.nor_output, width=10)
-        self.nor_output_entry.grid(row=5, column=3, columnspan=7, sticky='nsew')
+        self.nor_output_entry.grid(row=5, column=4, columnspan=6, sticky='nsew')
         self.nor_output_entry.xview(tk.END)
-        ToolTip(self.nor_output_entry, text='Suffix for normalised FITS spectra', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Button(norframe, text="Normalise spectra", style='function.TButton', command=self.thread_normalise).grid(row=5, column=11, columnspan=6, sticky='nsew')
+        ToolTip(self.nor_output_entry, msg='Suffix for normalised FITS spectra', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Button(norframe, text="Normalise spectra", style='function.TButton', command=self.normalise).grid(row=5, column=10, columnspan=7, sticky='nsew')
 
         for child in norframe.winfo_children(): child.grid_configure(padx=5, pady=5)
         
         # 2. Profile frame
         # Input/output folder and data
         # 1st row: select directory
-        ttk.Label(lsdframe, text="Input directory: ").grid(row=0, column=0, columnspan=5, sticky='nsew')
+        ttk.Label(lsdframe, text="Input folder: ").grid(row=0, column=0, columnspan=4, sticky='nsew')
         self.lsd_indir_entry = ttk.Entry(lsdframe, textvariable=self.lsd_indir, width=10)
-        self.lsd_indir_entry.grid(row=0, column=5, columnspan=9, sticky='nsew')
+        self.lsd_indir_entry.grid(row=0, column=4, columnspan=10, sticky='nsew')
         self.lsd_indir_entry.xview(tk.END)
         ttk.Button(lsdframe, text="Browse", command=self.lsd_load_indir, style='browse.TButton').grid(row=0, column=14, columnspan=3, sticky='nsew')
-        ToolTip(self.lsd_indir_entry, text='Directory with input normalised spectra', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ToolTip(self.lsd_indir_entry, msg='Directory with input normalised spectra', fg=self.t_tcolor, bg=self.t_background)
+        
         # 2nd row: select file/pattern
-        ttk.Label(lsdframe, text="File/Pattern: ").grid(row=1, column=0, columnspan=5, sticky='nsew')
+        ttk.Label(lsdframe, text="File/Pattern: ").grid(row=1, column=0, columnspan=4, sticky='nsew')
         self.lsd_spec_entry = ttk.Entry(lsdframe, textvariable=self.lsd_spec, width=10)
-        self.lsd_spec_entry.grid(row=1, column=5, columnspan=9, sticky='nsew')
+        self.lsd_spec_entry.grid(row=1, column=4, columnspan=10, sticky='nsew')
         self.lsd_spec_entry.xview(tk.END)
         ttk.Button(lsdframe, text="Browse", command=self.lsd_load_file, style='browse.TButton').grid(row=1, column=14, columnspan=3, sticky='nsew')
-        ToolTip(self.lsd_spec_entry, text='Select pattern OR single normalised spectrum', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)      
-        # 3rd row: set data columns
-        ttk.Label(lsdframe, text="Column/Field: ").grid(row=2, column=0, columnspan=3, sticky='nsew')
-        ttk.Label(lsdframe, text="Wave: ").grid(row=2, column=3, columnspan=2, sticky='nse')
-        self.lsd_wavecol_entry = ttk.Entry(lsdframe, textvariable=self.lsd_wavecol, width=3)
-        self.lsd_wavecol_entry.grid(row=2, column=5, sticky='nsw')
-        ToolTip(self.lsd_wavecol_entry, text='Column/Field with wavelength (1 = 1st column)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(lsdframe, text="Flux: ").grid(row=2, column=6, columnspan=2, sticky='nse')
-        self.lsd_fluxcol_entry = ttk.Entry(lsdframe, textvariable=self.lsd_fluxcol, width=3)
-        self.lsd_fluxcol_entry.grid(row=2, column=8, sticky='nsw')
-        ToolTip(self.lsd_fluxcol_entry, text='Column/Field with flux (1 = 1st column)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(lsdframe, text="NFlux: ").grid(row=2, column=9, columnspan=2, sticky='nse')
-        self.lsd_nfluxcol_entry = ttk.Entry(lsdframe, textvariable=self.lsd_nfluxcol, width=3)
-        self.lsd_nfluxcol_entry.grid(row=2, column=11, sticky='nsw')
-        ToolTip(self.lsd_nfluxcol_entry, text='Column/Field with normalised flux (1 = 1st column)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(lsdframe, text="S/N: ").grid(row=2, column=12, columnspan=1, sticky='nse')
-        self.lsd_snrcol_entry = ttk.Entry(lsdframe, textvariable=self.lsd_snrcol, width=3)
-        self.lsd_snrcol_entry.grid(row=2, column=13, sticky='nsw')
-        ToolTip(self.lsd_snrcol_entry, text='Column/Field with S/N (1 = 1st column)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(lsdframe, text="Units: ").grid(row=2, column=14, columnspan=2, sticky='nsew')
-        self.lsd_spec_unit_entry = ttk.Entry(lsdframe, textvariable=self.lsd_spec_unit, width=2)
-        self.lsd_spec_unit_entry.grid(row=2, column=16, sticky='nsw')        
-        ToolTip(self.lsd_spec_unit_entry, text='Spectral wavelength unit (a=Angstrom, n=nanometer, m=micron)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        # 4th row: output directory
-        ttk.Label(lsdframe, text="Output directory: ").grid(row=3, column=0, columnspan=5, sticky='nsew')
+        ToolTip(self.lsd_spec_entry, msg='Select pattern OR single normalised spectrum\nThe spectrum MUST be the output of the normalisation procedure:\nwavelength in vacuum and in angstroms\nFields: wave=1, flux=2, Nflux=3, S/N=4', fg=self.t_tcolor, bg=self.t_background)  
+            
+        
+        # 3rd row: output directory
+        ttk.Label(lsdframe, text="Output folder: ").grid(row=2, column=0, columnspan=4, sticky='nsew')
         self.lsd_outdir_entry = ttk.Entry(lsdframe, textvariable=self.lsd_outdir, width=10)
-        self.lsd_outdir_entry.grid(row=3, column=5, columnspan=9, sticky='nsew')
+        self.lsd_outdir_entry.grid(row=2, column=4, columnspan=10, sticky='nsew')
         self.lsd_outdir_entry.xview(tk.END)
-        ttk.Button(lsdframe, text="Browse", command=self.lsd_load_outdir, style='browse.TButton').grid(row=3, column=14, columnspan=3, sticky='nsew')
-        ToolTip(self.lsd_outdir_entry, text='Output directory', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ttk.Button(lsdframe, text="Browse", command=self.lsd_load_outdir, style='browse.TButton').grid(row=2, column=14, columnspan=3, sticky='nsew')
+        ToolTip(self.lsd_outdir_entry, msg='Output directory', fg=self.t_tcolor, bg=self.t_background)
+        
         # 2a. Extract single line
         # 1st row: define wavelength, RV range, plot      
-        ttk.Label(extframe, text="Wavelength:").grid(row=0, column=0, columnspan=3, sticky='nsw')
+        ttk.Label(extframe, text="Wavelength:").grid(row=0, column=0, columnspan=4, sticky='nsw')
         self.extwave_entry = ttk.Entry(extframe, textvariable=self.ext_wave, width=10)
-        self.extwave_entry.grid(row=0, column=3, columnspan=3, sticky='nsw')      
-        ToolTip(self.extwave_entry, text='Wavelength of the line to extract, in Angstroms. It will define RV=0', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        self.extwave_entry.grid(row=0, column=4, columnspan=2, sticky='nsw')      
+        ToolTip(self.extwave_entry, msg='Wavelength of the line to extract, in Angstroms. It will define RV=0', fg=self.t_tcolor, bg=self.t_background)
         ttk.Label(extframe, text="RV min: ").grid(row=0, column=6, columnspan=2, sticky='nse')
         self.rvmin_entry = ttk.Entry(extframe, textvariable=self.rvmin, width=5)
         self.rvmin_entry.grid(row=0, column=8, columnspan=1, sticky='nsw')      
-        ToolTip(self.rvmin_entry, text='Minimum RV of the profile', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ToolTip(self.rvmin_entry, msg='Minimum RV of the profile', fg=self.t_tcolor, bg=self.t_background)
         ttk.Label(extframe, text="RV max: ").grid(row=0, column=9, columnspan=2, sticky='nse')
         self.rvmax_entry = ttk.Entry(extframe, textvariable=self.rvmax, width=5)
         self.rvmax_entry.grid(row=0, column=11, columnspan=1, sticky='nsw')       
-        ToolTip(self.rvmax_entry, text='Maximum RV of the profile', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(extframe, text="Step: ").grid(row=0, column=12, columnspan=1, sticky='nse')
+        ToolTip(self.rvmax_entry, msg='Maximum RV of the profile', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(extframe, text="Step: ").grid(row=0, column=12, columnspan=2, sticky='nse')
         self.rvstep_entry = ttk.Entry(extframe, textvariable=self.rvstep, width=3)
-        self.rvstep_entry.grid(row=0, column=13, columnspan=1, sticky='nsw')
-        ToolTip(self.rvstep_entry, text='RV step of the profile', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)      
-        ttk.Label(extframe, text="Plot: ").grid(row=0, column=14, columnspan=2, sticky='nse')
-        self.extplot_entry = ttk.Checkbutton(extframe, variable=self.extplot)
+        self.rvstep_entry.grid(row=0, column=14, columnspan=1, sticky='nsw')
+        ToolTip(self.rvstep_entry, msg='RV step of the profile', fg=self.t_tcolor, bg=self.t_background)      
+        ttk.Label(extframe, text="Plot: ").grid(row=0, column=15, columnspan=1, sticky='nse')
+        self.extplot_entry = ttk.Checkbutton(extframe, variable=self.extplot, width=3)
         self.extplot_entry.grid(row=0, column=16, sticky='nsw')
-        ToolTip(self.extplot_entry, text='Plot profiles', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ToolTip(self.extplot_entry, msg='Plot profiles', fg=self.t_tcolor, bg=self.t_background)
+        
         # 2nd row: output suffix and run extraction   
-        ttk.Label(extframe, text="Suffix: ").grid(row=1, column=0, columnspan=3, sticky='nsew')
+        ttk.Label(extframe, text="Suffix: ").grid(row=1, column=0, columnspan=4, sticky='nsew')
         self.ext_output_entry = ttk.Entry(extframe, textvariable=self.ext_output, width=10)
-        self.ext_output_entry.grid(row=1, column=3, columnspan=8, sticky='nsew')
+        self.ext_output_entry.grid(row=1, column=4, columnspan=6, sticky='nsew')
         self.ext_output_entry.xview(tk.END)
-        ToolTip(self.ext_output_entry, text='Suffix for single line output profiles', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Button(extframe, text="Extract line", style='function.TButton', command=self.thread_extract_line).grid(row=1, column=11, columnspan=6, sticky='nsew')
+        ToolTip(self.ext_output_entry, msg='Suffix for single line output profiles', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Button(extframe, text="Extract line", style='function.TButton', command=self.thread_extract_line).grid(row=1, column=10, columnspan=7, sticky='nsew')
 
         for child in extframe.winfo_children(): child.grid_configure(padx=5, pady=5)        
 
         # 2b. Compute LSD or CCF profile
         # 1st row: select mask
-        ttk.Label(prfframe, text="Mask: ").grid(row=0, column=0, columnspan=2, sticky='nsew')
+        ttk.Label(prfframe, text="Mask: ").grid(row=0, column=0, columnspan=3, sticky='nsew')
         self.mask_entry = ttk.Entry(prfframe, textvariable=self.mask, width=10)
-        self.mask_entry.grid(row=0, column=2, columnspan=6, sticky='nsew')
+        self.mask_entry.grid(row=0, column=3, columnspan=5, sticky='nsew')
         self.mask_entry.xview(tk.END)
         ttk.Button(prfframe, text="Browse", command=self.mask_load_file, style='browse.TButton').grid(row=0, column=8, columnspan=3, sticky='nsew')
-        ToolTip(self.mask_entry, text='Select mask (VALD file or 2-column ASCII file)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ToolTip(self.mask_entry, msg='Select mask (VALD file or 2-column ASCII file)', fg=self.t_tcolor, bg=self.t_background)
         ttk.Label(prfframe, text="Invert: ").grid(row=0, column=11, columnspan=2, sticky='nse')
-        self.invert_entry = ttk.Checkbutton(prfframe, variable=self.mask_invert)
+        self.invert_entry = ttk.Checkbutton(prfframe, variable=self.mask_invert, width=3)
         self.invert_entry.grid(row=0, column=13, sticky='nsw')
-        ToolTip(self.invert_entry, text='Convert fluxes to depths (absorption mask/spectrum/model ONLY)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ToolTip(self.invert_entry, msg='Convert fluxes to depths (absorption mask/spectrum/model ONLY)', fg=self.t_tcolor, bg=self.t_background)
         ttk.Label(prfframe, text="Spectrum: ").grid(row=0, column=14, columnspan=2, sticky='nse')
-        self.maskspec_entry = ttk.Checkbutton(prfframe, variable=self.mask_spectrum)
+        self.maskspec_entry = ttk.Checkbutton(prfframe, variable=self.mask_spectrum, width=3)
         self.maskspec_entry.grid(row=0, column=16, sticky='nsw')
-        ToolTip(self.maskspec_entry, text='Use a spectrum (with continuum) as mask', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ToolTip(self.maskspec_entry, msg='Use a spectrum (with continuum) as mask', fg=self.t_tcolor, bg=self.t_background)
         # 2nd row: units, depths, wavelength range
-        ttk.Label(prfframe, text="Units: ").grid(row=1, column=0, columnspan=2, sticky='nsew')
-        self.mask_unit_entry = ttk.Entry(prfframe, textvariable=self.mask_unit, width=2)
-        self.mask_unit_entry.grid(row=1, column=2, sticky='nsw')        
-        ToolTip(self.mask_unit_entry, text='Mask wavelength unit (a=Angstrom, n=nanometer, m=micron)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(prfframe, text="Min Depth: ").grid(row=1, column=3, columnspan=2, sticky='nse')
+        self.mask_units = ttk.Combobox(prfframe, state="readonly",\
+                textvariable=self.mask_units_default,\
+                values=self.mask_units_values, width=10)
+        self.mask_units.bind("<<ComboboxSelected>>", self.mask_change_units)  
+        self.mask_units.grid(row=1, column=0, columnspan=3, sticky='nsew')
+        ToolTip(self.mask_units, msg='Select the wavelength unit', fg=self.t_tcolor, bg=self.t_background)
+        
+        self.mask_frame = ttk.Combobox(prfframe, state="readonly",\
+                textvariable=self.mask_wave_frame,\
+                values=self.mask_wave_values, width=10)
+        self.mask_frame.bind("<<ComboboxSelected>>", self.mask_change_frame) 
+        self.mask_frame.grid(row=1, column=3, columnspan=2, sticky='nsew')
+        ToolTip(self.mask_frame, msg='Select the wavelength frame', fg=self.t_tcolor, bg=self.t_background)   
+        
+        ttk.Label(prfframe, text="D min: ").grid(row=1, column=5, columnspan=2, sticky='nse')
         self.mask_dlow_entry = ttk.Entry(prfframe, textvariable=self.mask_dlow, width=5)
-        self.mask_dlow_entry.grid(row=1, column=5, sticky='nsw')        
-        ToolTip(self.mask_dlow_entry, text='Minimum line depth of mask lines to be used', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(prfframe, text="Max Depth: ").grid(row=1, column=6, columnspan=2, sticky='nse')
+        self.mask_dlow_entry.grid(row=1, column=7, sticky='nsw')        
+        ToolTip(self.mask_dlow_entry, msg='Minimum line depth of mask lines to be used', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(prfframe, text="D max: ").grid(row=1, column=8, columnspan=2, sticky='nse')
         self.mask_dup_entry = ttk.Entry(prfframe, textvariable=self.mask_dup, width=5)
-        self.mask_dup_entry.grid(row=1, column=8, sticky='nsw')        
-        ToolTip(self.mask_dup_entry, text='Maximum line depth of mask lines to be used', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(prfframe, text="Min Wave: ").grid(row=1, column=9, columnspan=2, sticky='nse')
+        self.mask_dup_entry.grid(row=1, column=10, sticky='nsw')        
+        ToolTip(self.mask_dup_entry, msg='Maximum line depth of mask lines to be used', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(prfframe, text="W min: ").grid(row=1, column=11, columnspan=2, sticky='nse')
         self.mask_wmin_entry = ttk.Entry(prfframe, textvariable=self.mask_wmin, width=5)
-        self.mask_wmin_entry.grid(row=1, column=11, columnspan=2, sticky='nsw')     
-        ToolTip(self.mask_wmin_entry, text='Minimum wavelength of mask lines to be used', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(prfframe, text="Max Wave: ").grid(row=1, column=13, columnspan=2, sticky='nse')
+        self.mask_wmin_entry.grid(row=1, column=13, columnspan=1, sticky='nsw')     
+        ToolTip(self.mask_wmin_entry, msg='Minimum wavelength of mask lines to be used', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(prfframe, text="W max: ").grid(row=1, column=14, columnspan=2, sticky='nse')
         self.mask_wmax_entry = ttk.Entry(prfframe, textvariable=self.mask_wmax, width=5)
-        self.mask_wmax_entry.grid(row=1, column=15, columnspan=2, sticky='nsw')      
-        ToolTip(self.mask_wmax_entry, text='Maximum wavelength of mask lines to be used', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        self.mask_wmax_entry.grid(row=1, column=16, columnspan=1, sticky='nsw')      
+        ToolTip(self.mask_wmax_entry, msg='Maximum wavelength of mask lines to be used', fg=self.t_tcolor, bg=self.t_background)
+        
         # 3rd row: select elements
-        ttk.Label(prfframe, text="VALD Els selected: ").grid(row=2, column=0, columnspan=4, sticky='nsew')
-        self.mask_els_entry = ttk.Entry(prfframe, textvariable=self.mask_els, width=10)
-        self.mask_els_entry.grid(row=2, column=4, columnspan=5, sticky='nsew')
-        ToolTip(self.mask_els_entry, text='ONLY for VALD mask: use only selected elements, e.g. "Fe 1,Fe 2,H 1"', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(prfframe, text="VALD Els excluded: ").grid(row=2, column=9, columnspan=4, sticky='nsew')
-        self.mask_noels_entry = ttk.Entry(prfframe, textvariable=self.mask_noels, width=10)
-        self.mask_noels_entry.grid(row=2, column=13, columnspan=4, sticky='nsew')
-        ToolTip(self.mask_noels_entry, text='ONLY for VALD mask: exclude selected elements, e.g. "Fe 1,Fe 2,H 1"', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ttk.Label(prfframe, text="VALD els: ").grid(row=2, column=0, columnspan=3, sticky='nsew')
+        self.mask_els_entry = ttk.Entry(prfframe, textvariable=self.mask_els, width=15)
+        self.mask_els_entry.grid(row=2, column=3, columnspan=5, sticky='nsew')
+        ToolTip(self.mask_els_entry, msg='ONLY for VALD mask: use only selected elements, e.g. "Fe 1,Fe 2,H 1"', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(prfframe, text="VALD NO els: ").grid(row=2, column=8, columnspan=4, sticky='nse')
+        self.mask_noels_entry = ttk.Entry(prfframe, textvariable=self.mask_noels, width=15)
+        self.mask_noels_entry.grid(row=2, column=12, columnspan=5, sticky='nsew')
+        ToolTip(self.mask_noels_entry, msg='ONLY for VALD mask: exclude selected elements, e.g. "Fe 1,Fe 2,H 1"', fg=self.t_tcolor, bg=self.t_background)
+        
         # 4th row: balmer, tellurics, remove cosmic rays, clean, S/N as weights
-        ttk.Label(prfframe, text="Balmer: ").grid(row=3, column=0, columnspan=2, sticky='nse')
-        self.mask_balmer_entry = ttk.Checkbutton(prfframe, variable=self.mask_balmer)
+        ttk.Label(prfframe, text="Balmer: ", width=8).grid(row=3, column=0, columnspan=2, sticky='nse')
+        self.mask_balmer_entry = ttk.Checkbutton(prfframe, variable=self.mask_balmer, width=3)
         self.mask_balmer_entry.grid(row=3, column=2, sticky='nsw')
-        ToolTip(self.mask_balmer_entry, text='Exclude Balmer regions', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(prfframe, text="Tellurics: ").grid(row=3, column=3, columnspan=2, sticky='nse')
-        self.mask_tell_entry = ttk.Checkbutton(prfframe, variable=self.mask_tell)
-        self.mask_tell_entry.grid(row=3, column=5, sticky='nsw')
-        ToolTip(self.mask_tell_entry, text='Exclude telluric regions', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(prfframe, text="Cosmics: ").grid(row=3, column=6, columnspan=2, sticky='nse')
-        self.cosmic_entry = ttk.Checkbutton(prfframe, variable=self.cosmic)
-        self.cosmic_entry.grid(row=3, column=8, sticky='nsw')
-        ToolTip(self.cosmic_entry, text='Remove cosmic rays', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(prfframe, text="Clean: ").grid(row=3, column=9, columnspan=2, sticky='nse')
-        self.clean_entry = ttk.Checkbutton(prfframe, variable=self.clean)
-        self.clean_entry.grid(row=3, column=11, sticky='nsw')
-        ToolTip(self.clean_entry, text='Clean spectrum (smoothing)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(prfframe, text="Use S/N as weights: ").grid(row=3, column=12, columnspan=4, sticky='nse')
-        self.ccfweight_entry = ttk.Checkbutton(prfframe, variable=self.ccfweight)
+        ToolTip(self.mask_balmer_entry, msg='Exclude Balmer regions', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(prfframe, text="Tellurics: ").grid(row=3, column=3, columnspan=3, sticky='nse')
+        self.mask_tell_entry = ttk.Checkbutton(prfframe, variable=self.mask_tell, width=3)
+        self.mask_tell_entry.grid(row=3, column=6, sticky='nsw')
+        ToolTip(self.mask_tell_entry, msg='Exclude telluric regions', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(prfframe, text="Cosmics: ").grid(row=3, column=7, columnspan=2, sticky='nse')
+        self.cosmic_entry = ttk.Checkbutton(prfframe, variable=self.cosmic, width=3)
+        self.cosmic_entry.grid(row=3, column=9, sticky='nsw')
+        ToolTip(self.cosmic_entry, msg='Remove cosmic rays', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(prfframe, text="Clean: ").grid(row=3, column=10, columnspan=2, sticky='nse')
+        self.clean_entry = ttk.Checkbutton(prfframe, variable=self.clean, width=3)
+        self.clean_entry.grid(row=3, column=12, sticky='nsw')
+        ToolTip(self.clean_entry, msg='Clean spectrum (smoothing)', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(prfframe, text="S/N weighted: ").grid(row=3, column=13, columnspan=3, sticky='nse')
+        self.ccfweight_entry = ttk.Checkbutton(prfframe, variable=self.ccfweight, width=3)
         self.ccfweight_entry.grid(row=3, column=16, sticky='nsw')
-        ToolTip(self.ccfweight_entry, text='Use the normalised S/N values as weigths when computing the CCF', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration) 
+        ToolTip(self.ccfweight_entry, msg='Use the normalised S/N values as weigths when computing the CCF', fg=self.t_tcolor, bg=self.t_background) 
+        
         # 5th row: rv range, rv step, LSD, CCF, plot
+        
         ttk.Label(prfframe, text="RV min: ").grid(row=4, column=0, columnspan=2, sticky='nse')
         self.rvmin_entry = ttk.Entry(prfframe, textvariable=self.rvmin, width=5)
-        self.rvmin_entry.grid(row=4, column=2, columnspan=1, sticky='nsw')      
-        ToolTip(self.rvmin_entry, text='Minimum RV of the profile', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(prfframe, text="RV max: ").grid(row=4, column=3, columnspan=2, sticky='nse')
+        self.rvmin_entry.grid(row=4, column=2, columnspan=2, sticky='nsw')      
+        ToolTip(self.rvmin_entry, msg='Minimum RV of the profile', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(prfframe, text="RV max: ", width=8).grid(row=4, column=4, columnspan=2, sticky='nse')
         self.rvmax_entry = ttk.Entry(prfframe, textvariable=self.rvmax, width=5)
-        self.rvmax_entry.grid(row=4, column=5, columnspan=1, sticky='nsw')       
-        ToolTip(self.rvmax_entry, text='Maximum RV of the profile', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(prfframe, text="Step: ").grid(row=4, column=6, columnspan=1, sticky='nse')
+        self.rvmax_entry.grid(row=4, column=6, columnspan=2, sticky='nsw')       
+        ToolTip(self.rvmax_entry, msg='Maximum RV of the profile', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(prfframe, text="Step: ").grid(row=4, column=8, columnspan=1, sticky='nse')
         self.rvstep_entry = ttk.Entry(prfframe, textvariable=self.rvstep, width=3)
-        self.rvstep_entry.grid(row=4, column=7, columnspan=1, sticky='nsw')
-        ToolTip(self.rvstep_entry, text='RV step of the profile', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(prfframe, text="LSD: ").grid(row=4, column=9, columnspan=1, sticky='nse')
-        self.lsdlsd_entry = ttk.Checkbutton(prfframe, variable=self.do_lsd, command=self.sfx_lsd)
-        self.lsdlsd_entry.grid(row=4, column=10, sticky='nsw')
-        ToolTip(self.lsdlsd_entry, text='Compute LSD profiles', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(prfframe, text="CCF: ").grid(row=4, column=12, columnspan=1, sticky='nse')
-        self.lsdccf_entry = ttk.Checkbutton(prfframe, variable=self.do_ccf, command=self.sfx_ccf)
-        self.lsdccf_entry.grid(row=4, column=13, sticky='nsw')
-        ToolTip(self.lsdccf_entry, text='Compute CCF profiles', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(prfframe, text="Plot: ").grid(row=4, column=14, columnspan=2, sticky='nse')
-        self.lsdplot_entry = ttk.Checkbutton(prfframe, variable=self.lsdplot)
+        self.rvstep_entry.grid(row=4, column=9, columnspan=1, sticky='nsw')
+        ToolTip(self.rvstep_entry, msg='RV step of the profile', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(prfframe, text="LSD: ").grid(row=4, column=11, columnspan=1, sticky='nse')
+        self.lsdlsd_entry = ttk.Checkbutton(prfframe, variable=self.do_lsd, command=self.sfx_lsd, width=3)
+        self.lsdlsd_entry.grid(row=4, column=12, sticky='nsw')
+        ToolTip(self.lsdlsd_entry, msg='Compute LSD profiles', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(prfframe, text="CCF: ").grid(row=4, column=13, columnspan=1, sticky='nse')
+        self.lsdccf_entry = ttk.Checkbutton(prfframe, variable=self.do_ccf, command=self.sfx_ccf, width=3)
+        self.lsdccf_entry.grid(row=4, column=14, sticky='nsw')
+        ToolTip(self.lsdccf_entry, msg='Compute CCF profiles', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(prfframe, text="Plot: ").grid(row=4, column=15, columnspan=1, sticky='nse')
+        self.lsdplot_entry = ttk.Checkbutton(prfframe, variable=self.lsdplot, width=3)
         self.lsdplot_entry.grid(row=4, column=16, sticky='nsw')
-        ToolTip(self.lsdplot_entry, text='Plot profiles', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)     
+        ToolTip(self.lsdplot_entry, msg='Plot profiles', fg=self.t_tcolor, bg=self.t_background)   
+          
         # 6th row: output suffix and run LSD/CCF
         ttk.Label(prfframe, text="Suffix: ").grid(row=5, column=0, columnspan=3, sticky='nsew')
         self.lsd_output_entry = ttk.Entry(prfframe, textvariable=self.lsd_output, width=10)
-        self.lsd_output_entry.grid(row=5, column=3, columnspan=7, sticky='nsew')
+        self.lsd_output_entry.grid(row=5, column=3, columnspan=6, sticky='nsew')
         self.lsd_output_entry.xview(tk.END)
-        ToolTip(self.lsd_output_entry, text='Suffix for FITS output profiles', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Button(prfframe, text="Compute profile", style='function.TButton', command=self.thread_do_profile).grid(row=5, column=11, columnspan=6, sticky='nsew')
+        ToolTip(self.lsd_output_entry, msg='Suffix for FITS output profiles', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Button(prfframe, text="Compute profile", style='function.TButton', command=self.thread_do_profile).grid(row=5, column=9, columnspan=8, sticky='nsew')
 
         for child in prfframe.winfo_children(): child.grid_configure(padx=5, pady=5)
         for child in lsdframe.winfo_children(): child.grid_configure(padx=5, pady=5)
@@ -900,7 +953,7 @@ class MainApp(ttk.Frame):
         
         # MESSAGE FRAME
         
-        self.messages_entry = tk.Text(msgframe, height=self.msgrows,width=45)
+        self.messages_entry = tk.Text(msgframe, height=self.msgrows,width=40)
         self.messages_entry.grid(row=0, rowspan=self.msgrows-1, column=0, columnspan=msgcols-1, sticky='nsew')
         
         # create a Scrollbar and associate it with txt
@@ -921,194 +974,197 @@ class MainApp(ttk.Frame):
         # 3. Line Analysis frame
         # 3. Line Analysis
         # 3 - 1st row: select directory
-        ttk.Label(laframe, text="Input directory: ").grid(row=0, column=0, columnspan=5, sticky='nsew')
+        ttk.Label(laframe, text="Input folder: ").grid(row=0, column=0, columnspan=4, sticky='nsew')
         self.la_indir_entry = ttk.Entry(laframe, textvariable=self.la_indir, width=10)
-        self.la_indir_entry.grid(row=0, column=5, columnspan=9, sticky='nsew')
+        self.la_indir_entry.grid(row=0, column=4, columnspan=10, sticky='nsew')
         self.la_indir_entry.xview(tk.END)
         ttk.Button(laframe, text="Browse", command=self.la_load_indir, style='browse.TButton').grid(row=0, column=14, columnspan=3, sticky='nsew')
-        ToolTip(self.la_indir_entry, text='Directory with input (normalised) profiles', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ToolTip(self.la_indir_entry, msg='Directory with input (normalised) profiles', fg=self.t_tcolor, bg=self.t_background)
         # 3 - 2nd row: select file/pattern
-        ttk.Label(laframe, text="File/Pattern: ").grid(row=1, column=0, columnspan=5, sticky='nsew')
+        ttk.Label(laframe, text="File/Pattern: ").grid(row=1, column=0, columnspan=4, sticky='nsew')
         self.la_spec_entry = ttk.Entry(laframe, textvariable=self.la_spec, width=10)
-        self.la_spec_entry.grid(row=1, column=5, columnspan=9, sticky='nsew')
+        self.la_spec_entry.grid(row=1, column=4, columnspan=10, sticky='nsew')
         self.la_spec_entry.xview(tk.END)
         ttk.Button(laframe, text="Browse", command=self.la_load_file, style='browse.TButton').grid(row=1, column=14, columnspan=3, sticky='nsew')
-        ToolTip(self.la_spec_entry, text='Select pattern OR single (normalised) profiles', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ToolTip(self.la_spec_entry, msg='Select pattern OR single (normalised) profiles', fg=self.t_tcolor, bg=self.t_background)
         # 3 - 3rd row: select output directory
-        ttk.Label(laframe, text="Output directory: ").grid(row=2, column=0, columnspan=5, sticky='nsew')
+        ttk.Label(laframe, text="Output folder: ").grid(row=2, column=0, columnspan=4, sticky='nsew')
         self.la_outdir_entry = ttk.Entry(laframe, textvariable=self.la_outdir, width=10)
-        self.la_outdir_entry.grid(row=2, column=5, columnspan=9, sticky='nsew')
+        self.la_outdir_entry.grid(row=2, column=4, columnspan=10, sticky='nsew')
         self.la_outdir_entry.xview(tk.END)
         ttk.Button(laframe, text="Browse", command=self.la_load_outdir, style='browse.TButton').grid(row=2, column=14, columnspan=3, sticky='nsew')
-        ToolTip(self.la_outdir_entry, text='Output directory', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        # 3a. Normalise profiles
+        ToolTip(self.la_outdir_entry, msg='Output directory', fg=self.t_tcolor, bg=self.t_background)
+        # 3a. Normalise profiles  
         # 3a - 1st row: limits, st. dev, plot
         ttk.Label(norprfframe, text="RV min: ").grid(row=0, column=0, columnspan=3, sticky='nse')
         self.limitlow_entry = ttk.Entry(norprfframe, textvariable=self.limitlow, width=3)
         self.limitlow_entry.grid(row=0, column=3, columnspan=2, sticky='nsw')
-        ToolTip(self.limitlow_entry, text='Left border of the profile (for continuum definition)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ToolTip(self.limitlow_entry, msg='Left border of the profile (for continuum definition)', fg=self.t_tcolor, bg=self.t_background)
         ttk.Label(norprfframe, text="RV max: ").grid(row=0, column=5, columnspan=3, sticky='nse')
         self.limitup_entry = ttk.Entry(norprfframe, textvariable=self.limitup, width=3)
         self.limitup_entry.grid(row=0, column=8, columnspan=2, sticky='nsw')       
-        ToolTip(self.limitup_entry, text='Right border of the profile (for continuum definition)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ToolTip(self.limitup_entry, msg='Right border of the profile (for continuum definition)', fg=self.t_tcolor, bg=self.t_background)
         ttk.Label(norprfframe, text="St.Dev: ").grid(row=0, column=10, columnspan=3, sticky='nse')
-        self.std_entry = ttk.Checkbutton(norprfframe, variable=self.std)
+        self.std_entry = ttk.Checkbutton(norprfframe, variable=self.std, width=3)
         self.std_entry.grid(row=0, column=13, sticky='nsw')
-        ToolTip(self.std_entry, text='Compute average and st. dev.', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ToolTip(self.std_entry, msg='Compute average and st. dev.', fg=self.t_tcolor, bg=self.t_background)
         ttk.Label(norprfframe, text="Plot: ").grid(row=0, column=14, columnspan=2, sticky='nse')
-        self.norprfplot_entry = ttk.Checkbutton(norprfframe, variable=self.norprfplot)
+        self.norprfplot_entry = ttk.Checkbutton(norprfframe, variable=self.norprfplot, width=3)
         self.norprfplot_entry.grid(row=0, column=16, sticky='nsw')
-        ToolTip(self.norprfplot_entry, text='Plot normalised profiles', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)  
+        ToolTip(self.norprfplot_entry, msg='Plot normalised profiles', fg=self.t_tcolor, bg=self.t_background)  
         # 3a - 2nd row: suffix and run profile normalisation
         ttk.Label(norprfframe, text="Suffix: ").grid(row=1, column=0, columnspan=3, sticky='nsew')
         self.norprf_output_entry = ttk.Entry(norprfframe, textvariable=self.norprf_output, width=10)
-        self.norprf_output_entry.grid(row=1, column=3, columnspan=8, sticky='nsew')
-        ToolTip(self.norprf_output_entry, text='Suffix for normalised LSD profiles', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Button(norprfframe, text="Normalise profile", style='function.TButton', command=self.thread_norm_profile).grid(row=1, column=11, columnspan=6, sticky='nsew')
+        self.norprf_output_entry.grid(row=1, column=3, columnspan=7, sticky='nsew')
+        ToolTip(self.norprf_output_entry, msg='Suffix for normalised LSD profiles', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Button(norprfframe, text="Normalise profile", style='function.TButton', command=self.thread_norm_profile).grid(row=1, column=10, columnspan=7, sticky='nsew')
         for child in norprfframe.winfo_children(): child.grid_configure(padx=5, pady=5)       
         # 3b. Fit profiles  
         # 3b - 1st row: fit function
-        ttk.Label(fitframe, text="Gaussian: ").grid(row=0, column=0, columnspan=3, sticky='nse')
-        self.gauss_entry = ttk.Checkbutton(fitframe, variable=self.fitgauss)
+        ttk.Label(fitframe, text="Gaussian: ", width=10).grid(row=0, column=0, columnspan=3, sticky='nse')
+        self.gauss_entry = ttk.Checkbutton(fitframe, variable=self.fitgauss, width=3)
         self.gauss_entry.grid(row=0, column=3, sticky='nsw')
-        ToolTip(self.gauss_entry, text='Fit profile with a Gaussian function', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(fitframe, text="Lorentzian: ").grid(row=0, column=4, columnspan=3, sticky='nse')
-        self.lor_entry = ttk.Checkbutton(fitframe, variable=self.fitlorentz)
-        self.lor_entry.grid(row=0, column=7, sticky='nsw')       
-        ToolTip(self.lor_entry, text='Fit profile with a Lorentzian function', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(fitframe, text="Voigt: ").grid(row=0, column=8, columnspan=3, sticky='nse')
-        self.voigt_entry = ttk.Checkbutton(fitframe, variable=self.fitvoigt)
+        ToolTip(self.gauss_entry, msg='Fit profile with a Gaussian function', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(fitframe, text="Lorentzian: ").grid(row=0, column=4, columnspan=4, sticky='nse')
+        self.lor_entry = ttk.Checkbutton(fitframe, variable=self.fitlorentz, width=3)
+        self.lor_entry.grid(row=0, column=8, sticky='nsw')       
+        ToolTip(self.lor_entry, msg='Fit profile with a Lorentzian function', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(fitframe, text="Voigt: ").grid(row=0, column=9, columnspan=2, sticky='nse')
+        self.voigt_entry = ttk.Checkbutton(fitframe, variable=self.fitvoigt, width=3)
         self.voigt_entry.grid(row=0, column=11, sticky='nsw')       
-        ToolTip(self.voigt_entry, text='Fit profile with a Voigt function', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)  
-        ttk.Label(fitframe, text="Rotational: ").grid(row=0, column=12, columnspan=3, sticky='nse')
-        self.rot_entry = ttk.Checkbutton(fitframe, variable=self.fitrot)
-        self.rot_entry.grid(row=0, column=15, sticky='nsw')       
-        ToolTip(self.rot_entry, text='Fit profile with a rotational function', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ToolTip(self.voigt_entry, msg='Fit profile with a Voigt function', fg=self.t_tcolor, bg=self.t_background)  
+        ttk.Label(fitframe, text="Rotational: ").grid(row=0, column=12, columnspan=4, sticky='nse')
+        self.rot_entry = ttk.Checkbutton(fitframe, variable=self.fitrot, width=3)
+        self.rot_entry.grid(row=0, column=16, sticky='nsw')       
+        ToolTip(self.rot_entry, msg='Fit profile with a rotational function', fg=self.t_tcolor, bg=self.t_background)
         # 3b - 2nd row: plot parameters and plot
-        ttk.Label(fitframe, text="RV guess: ").grid(row=1, column=0, columnspan=3, sticky='nse')
-        self.rv0_entry = ttk.Entry(fitframe, textvariable=self.rv0, width=3)
-        self.rv0_entry.grid(row=1, column=3, columnspan=2, sticky='nsw')
-        ToolTip(self.rv0_entry, text='RV guess value', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(fitframe, text="Width guess: ").grid(row=1, column=5, columnspan=3, sticky='nse')
-        self.width_entry = ttk.Entry(fitframe, textvariable=self.width, width=3)
-        self.width_entry.grid(row=1, column=8, columnspan=2, sticky='nsw')
-        ToolTip(self.width_entry, text='Line width guess value', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(fitframe, text="LD: ").grid(row=1, column=10, columnspan=1, sticky='nse')
-        self.ld_entry = ttk.Entry(fitframe, textvariable=self.ld, width=3)
-        self.ld_entry.grid(row=1, column=11, sticky='nsw')        
-        ToolTip(self.ld_entry, text='Linear limb darkening  value', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(fitframe, text="Use errors: ").grid(row=1, column=12, columnspan=2, sticky='nse')
-        self.fit_errs_entry = ttk.Checkbutton(fitframe, variable=self.fit_errs)
-        self.fit_errs_entry.grid(row=1, column=14, sticky='nsw')        
-        ToolTip(self.fit_errs_entry, text='Use the errors on the data when fitting', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)    
-        ttk.Label(fitframe, text="Plot: ").grid(row=1, column=15, columnspan=1, sticky='nse')
-        self.fitplot_entry = ttk.Checkbutton(fitframe, variable=self.fitplot)
+        ttk.Label(fitframe, text="RV guess: ", width=10).grid(row=1, column=0, columnspan=3, sticky='nse')
+        self.rv0_entry = ttk.Entry(fitframe, textvariable=self.rv0, width=5)
+        self.rv0_entry.grid(row=1, column=3, columnspan=1, sticky='nsw')
+        ToolTip(self.rv0_entry, msg='RV guess value', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(fitframe, text="W guess: ", width=10).grid(row=1, column=4, columnspan=3, sticky='nse')
+        self.width_entry = ttk.Entry(fitframe, textvariable=self.width, width=5)
+        self.width_entry.grid(row=1, column=7, columnspan=1, sticky='nsw')
+        ToolTip(self.width_entry, msg='Line width guess value', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(fitframe, text="LD: ", width=4).grid(row=1, column=8, columnspan=1, sticky='nse')
+        self.ld_entry = ttk.Entry(fitframe, textvariable=self.ld, width=5)
+        self.ld_entry.grid(row=1, column=9, sticky='nsw')        
+        ToolTip(self.ld_entry, msg='Linear limb darkening  value', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(fitframe, text="Use errors: ", width=12).grid(row=1, column=10, columnspan=3, sticky='nse')
+        self.fit_errs_entry = ttk.Checkbutton(fitframe, variable=self.fit_errs, width=3)
+        self.fit_errs_entry.grid(row=1, column=13, sticky='nsw')        
+        ToolTip(self.fit_errs_entry, msg='Use the errors on the data when fitting', fg=self.t_tcolor, bg=self.t_background)    
+        ttk.Label(fitframe, text="Plot: ", width=6).grid(row=1, column=14, columnspan=2, sticky='nse')
+        self.fitplot_entry = ttk.Checkbutton(fitframe, variable=self.fitplot, width=3)
         self.fitplot_entry.grid(row=1, column=16, sticky='nsw')
-        ToolTip(self.fitplot_entry, text='Plot fitting results', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ToolTip(self.fitplot_entry, msg='Plot fitting results', fg=self.t_tcolor, bg=self.t_background)
         
         # 3b - 3rd row: suffix and run profile fitting
         ttk.Label(fitframe, text="Suffix: ").grid(row=2, column=0, columnspan=3, sticky='nsew')
         self.fit_output_entry = ttk.Entry(fitframe, textvariable=self.fit_output, width=10)
-        self.fit_output_entry.grid(row=2, column=3, columnspan=8, sticky='nsew')
-        ToolTip(self.fit_output_entry, text='Suffix for the fitting results', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Button(fitframe, text="Fit profile", style='function.TButton', command=self.thread_fit_profile).grid(row=2, column=11, columnspan=6, sticky='nsew')
+        self.fit_output_entry.grid(row=2, column=3, columnspan=7, sticky='nsew')
+        ToolTip(self.fit_output_entry, msg='Suffix for the fitting results', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Button(fitframe, text="Fit profile", style='function.TButton', command=self.thread_fit_profile).grid(row=2, column=10, columnspan=7, sticky='nsew')
         
         for child in fitframe.winfo_children(): child.grid_configure(padx=5, pady=5)
         
         # 3c. Compute Moments
         # 3c - 1st row: define limits and plot
-        ttk.Label(momframe, text="Gaussian: ").grid(row=0, column=0, columnspan=3, sticky='nse')
-        self.usegauss_entry = ttk.Checkbutton(momframe, variable=self.usegauss, command=self.norot)
-        self.usegauss_entry.grid(row=0, column=3, sticky='nsw')
-        ToolTip(self.usegauss_entry, text='Use 3 sigma from Gaussian fitting to define the line limits', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(momframe, text="Rotational: ").grid(row=0, column=4, columnspan=3, sticky='nse')
-        self.userot_entry = ttk.Checkbutton(momframe, variable=self.userot, command=self.nogauss)
-        self.userot_entry.grid(row=0, column=7, sticky='nsw')
-        ToolTip(self.userot_entry, text='Use vsini from rotational fitting to define the line limits', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(momframe, text="RV min: ").grid(row=0, column=8, columnspan=2, sticky='nse')
-        self.limitlow_entry = ttk.Entry(momframe, textvariable=self.limitlow, width=3)
-        self.limitlow_entry.grid(row=0, column=10, sticky='nsw')        
-        ToolTip(self.limitlow_entry, text='Left border of the profile (for line definition)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(momframe, text="RV max: ").grid(row=0, column=11, columnspan=2, sticky='nse')
-        self.limitup_entry = ttk.Entry(momframe, textvariable=self.limitup, width=3)
-        self.limitup_entry.grid(row=0, column=13, sticky='nsw')        
-        ToolTip(self.limitup_entry, text='Right border of the profile (for line definition)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        #self.mom_menu = ttk.OptionMenu(momframe, self.option_mom_var, self.option_la_default, *self.option_la_values, command=self.option_la_change)
+        
+        self.mom_menu = ttk.Combobox(momframe, state="readonly",\
+                textvariable=self.option_limits,\
+                values=self.option_la_values)
+        self.mom_menu.bind("<<ComboboxSelected>>", self.option_la_change)
+        self.mom_menu.grid(row=0, column=0, columnspan=4, sticky='nsew')
+        ToolTip(self.mom_menu, msg='Select the line limits (from previous fit or manual)', fg=self.t_tcolor, bg=self.t_background)   
+        
+        ttk.Label(momframe, text="RV min: ").grid(row=0, column=4, columnspan=3, sticky='nse')
+        self.limitlow_entry = ttk.Entry(momframe, textvariable=self.show_limitlow, width=6)
+        self.limitlow_entry.grid(row=0, column=7, columnspan=2, sticky='nsw')        
+        ToolTip(self.limitlow_entry, msg='Left border of the profile (for line definition)', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(momframe, text="RV max: ").grid(row=0, column=9, columnspan=3, sticky='nse')
+        self.limitup_entry = ttk.Entry(momframe, textvariable=self.show_limitup, width=6)
+        self.limitup_entry.grid(row=0, column=12, columnspan=2, sticky='nsw')        
+        ToolTip(self.limitup_entry, msg='Right border of the profile (for line definition)', fg=self.t_tcolor, bg=self.t_background)
         ttk.Label(momframe, text="Plot: ").grid(row=0, column=14, columnspan=2, sticky='nse')
-        self.momplot_entry = ttk.Checkbutton(momframe, variable=self.momplot)
+        self.momplot_entry = ttk.Checkbutton(momframe, variable=self.momplot, width=3)
         self.momplot_entry.grid(row=0, column=16, sticky='nsw')
-        ToolTip(self.momplot_entry, text='Plot line limits', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)          
+        ToolTip(self.momplot_entry, msg='Plot line limits', fg=self.t_tcolor, bg=self.t_background)          
         # 3c - 2nd row: output suffix and run routine
         ttk.Label(momframe, text="Suffix: ").grid(row=1, column=0, columnspan=3, sticky='nsew')
         self.mom_output_entry = ttk.Entry(momframe, textvariable=self.mom_output, width=10)
-        self.mom_output_entry.grid(row=1, column=3, columnspan=8, sticky='nsew')
-        ToolTip(self.mom_output_entry, text='Suffix for the moments results', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Button(momframe, text="Moments", style='function.TButton', command=self.thread_moments).grid(row=1, column=11, columnspan=6, sticky='nsew')
+        self.mom_output_entry.grid(row=1, column=3, columnspan=7, sticky='nsew')
+        ToolTip(self.mom_output_entry, msg='Suffix for the moments results', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Button(momframe, text="Moments", style='function.TButton', command=self.thread_moments).grid(row=1, column=10, columnspan=7, sticky='nsew')
         
         for child in momframe.winfo_children(): child.grid_configure(padx=5, pady=5)
         
         # 3d. Compute Bisector
-        # 3d - 1st row: define limits, plot        
-        ttk.Label(bisframe, text="Gaussian: ").grid(row=0, column=0, columnspan=3, sticky='nse')
-        self.usegauss_entry = ttk.Checkbutton(bisframe, variable=self.usegauss, command=self.norot)
-        self.usegauss_entry.grid(row=0, column=3, sticky='nsw')
-        ToolTip(self.usegauss_entry, text='Use 3 sigma from Gaussian fitting to define the line limits', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(bisframe, text="Rotational: ").grid(row=0, column=4, columnspan=3, sticky='nse')
-        self.userot_entry = ttk.Checkbutton(bisframe, variable=self.userot, command=self.nogauss)
-        self.userot_entry.grid(row=0, column=7, sticky='nsw')
-        ToolTip(self.userot_entry, text='Use vsini from rotational fitting to define the line limits', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(bisframe, text="RV min: ").grid(row=0, column=8, columnspan=2, sticky='nse')
-        self.limitlow_entry = ttk.Entry(bisframe, textvariable=self.limitlow, width=3)
-        self.limitlow_entry.grid(row=0, column=10, sticky='nsw')        
-        ToolTip(self.limitlow_entry, text='Left border of the profile (for line definition)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(bisframe, text="RV max: ").grid(row=0, column=11, columnspan=2, sticky='nse')
-        self.limitup_entry = ttk.Entry(bisframe, textvariable=self.limitup, width=3)
-        self.limitup_entry.grid(row=0, column=13, sticky='nsw')        
-        ToolTip(self.limitup_entry, text='Right border of the profile (for line definition)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        # 3d - 1st row: define limits, plot
+        #self.bis_menu = ttk.OptionMenu(bisframe, self.option_bis_var, self.option_la_default, *self.option_la_values, command=self.option_la_change)
+        
+        self.bis_menu = ttk.Combobox(bisframe, state="readonly",\
+                textvariable=self.option_limits,\
+                values=self.option_la_values)
+        self.bis_menu.bind("<<ComboboxSelected>>", self.option_la_change)
+        self.bis_menu.grid(row=0, column=0, columnspan=4, sticky='nsew')
+        ToolTip(self.bis_menu, msg='Select the line limits (from previous fit or manual)', fg=self.t_tcolor, bg=self.t_background)  
+        
+        ttk.Label(bisframe, text="RV min: ").grid(row=0, column=4, columnspan=3, sticky='nse')
+        self.limitlow_entry = ttk.Entry(bisframe, textvariable=self.show_limitlow, width=6)
+        self.limitlow_entry.grid(row=0, column=7, columnspan=2, sticky='nsw')        
+        ToolTip(self.limitlow_entry, msg='Left border of the profile (for line definition)', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(bisframe, text="RV max: ").grid(row=0, column=9, columnspan=3, sticky='nse')
+        self.limitup_entry = ttk.Entry(bisframe, textvariable=self.show_limitup, width=6)
+        self.limitup_entry.grid(row=0, column=12, columnspan=2, sticky='nsw')        
+        ToolTip(self.limitup_entry, msg='Right border of the profile (for line definition)', fg=self.t_tcolor, bg=self.t_background)
         ttk.Label(bisframe, text="Plot: ").grid(row=0, column=14, columnspan=2, sticky='nse')
-        self.bisplot_entry = ttk.Checkbutton(bisframe, variable=self.bisplot)
+        self.bisplot_entry = ttk.Checkbutton(bisframe, variable=self.bisplot, width=3)
         self.bisplot_entry.grid(row=0, column=16, sticky='nsw')
-        ToolTip(self.bisplot_entry, text='Plot bisectors', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ToolTip(self.bisplot_entry, msg='Plot bisectors', fg=self.t_tcolor, bg=self.t_background)
         # 3d - 2nd row: output suffix and run routine
         ttk.Label(bisframe, text="Suffix: ").grid(row=1, column=0, columnspan=3, sticky='nsew')
         self.bis_output_entry = ttk.Entry(bisframe, textvariable=self.bis_output, width=10)
-        self.bis_output_entry.grid(row=1, column=3, columnspan=8, sticky='nsew')
-        ToolTip(self.bis_output_entry, text='Suffix for the bisector results', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Button(bisframe, text="Bisector", style='function.TButton', command=self.thread_bisector).grid(row=1, column=11, columnspan=6, sticky='nsew')
+        self.bis_output_entry.grid(row=1, column=3, columnspan=7, sticky='nsew')
+        ToolTip(self.bis_output_entry, msg='Suffix for the bisector results', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Button(bisframe, text="Bisector", style='function.TButton', command=self.thread_bisector).grid(row=1, column=10, columnspan=7, sticky='nsew')
         
         for child in bisframe.winfo_children(): child.grid_configure(padx=5, pady=5)
         
         # 3e. Compute Fourier Transform
         # 3e - 1st row: define limits
-        ttk.Label(fouframe, text="Gaussian: ").grid(row=0, column=0, columnspan=3, sticky='nse')
-        self.usegauss_entry = ttk.Checkbutton(fouframe, variable=self.usegauss, command=self.norot)
-        self.usegauss_entry.grid(row=0, column=3, sticky='nsw')
-        ToolTip(self.usegauss_entry, text='Use 3 sigma from Gaussian fitting to define the line limits', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(fouframe, text="Rotational: ").grid(row=0, column=4, columnspan=3, sticky='nse')
-        self.userot_entry = ttk.Checkbutton(fouframe, variable=self.userot, command=self.nogauss)
-        self.userot_entry.grid(row=0, column=7, sticky='nsw')
-        ToolTip(self.userot_entry, text='Use vsini from rotational fitting to define the line limits', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(fouframe, text="RV min: ").grid(row=0, column=8, columnspan=2, sticky='nse')
-        self.limitlow_entry = ttk.Entry(fouframe, textvariable=self.limitlow, width=3)
-        self.limitlow_entry.grid(row=0, column=10, sticky='nsw')        
-        ToolTip(self.limitlow_entry, text='Left border of the profile (for line definition)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Label(fouframe, text="RV max: ").grid(row=0, column=11, columnspan=2, sticky='nse')
-        self.limitup_entry = ttk.Entry(fouframe, textvariable=self.limitup, width=3)
-        self.limitup_entry.grid(row=0, column=13, sticky='nsw')        
-        ToolTip(self.limitup_entry, text='Right border of the profile (for line definition)', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        #self.fou_menu = ttk.OptionMenu(fouframe, self.option_fou_var, self.option_la_default, *self.option_la_values, command=self.option_la_change)
+        
+        self.fou_menu = ttk.Combobox(fouframe, state="readonly",\
+                textvariable=self.option_limits,\
+                values=self.option_la_values)
+        self.fou_menu.bind("<<ComboboxSelected>>", self.option_la_change)
+        self.fou_menu.grid(row=0, column=0, columnspan=4, sticky='nsew')
+        ToolTip(self.fou_menu, msg='Select the line limits (from previous fit or manual)', fg=self.t_tcolor, bg=self.t_background) 
+        
+        ttk.Label(fouframe, text="RV min: ").grid(row=0, column=4, columnspan=3, sticky='nse')
+        self.limitlow_entry = ttk.Entry(fouframe, textvariable=self.show_limitlow, width=6)
+        self.limitlow_entry.grid(row=0, column=7, columnspan=2, sticky='nsw')        
+        ToolTip(self.limitlow_entry, msg='Left border of the profile (for line definition)', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Label(fouframe, text="RV max: ").grid(row=0, column=9, columnspan=3, sticky='nse')
+        self.limitup_entry = ttk.Entry(fouframe, textvariable=self.show_limitup, width=6)
+        self.limitup_entry.grid(row=0, column=12, columnspan=2, sticky='nsw')        
+        ToolTip(self.limitup_entry, msg='Right border of the profile (for line definition)', fg=self.t_tcolor, bg=self.t_background)       
         ttk.Label(fouframe, text="Plot: ").grid(row=0, column=14, columnspan=2, sticky='nse')
-        self.bisplot_entry = ttk.Checkbutton(fouframe, variable=self.bisplot)
-        self.bisplot_entry.grid(row=0, column=16, sticky='nsw')
-        ToolTip(self.bisplot_entry, text='Plot bisectors', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        self.fouplot_entry = ttk.Checkbutton(fouframe, variable=self.fouplot, width=3)
+        self.fouplot_entry.grid(row=0, column=16, sticky='nsw')
+        ToolTip(self.fouplot_entry, msg='Plot Fourier Transform', fg=self.t_tcolor, bg=self.t_background)
         # 3e - 2nd row: limb darkening, output suffix and run routine
         ttk.Label(fouframe, text="LD: ").grid(row=1, column=0, sticky='nse')
         self.ld_entry = ttk.Entry(fouframe, textvariable=self.ld, width=3)
         self.ld_entry.grid(row=1, column=1, sticky='nsw')
-        ToolTip(self.ld_entry, text='Linear limb darkening value', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
+        ToolTip(self.ld_entry, msg='Linear limb darkening value', fg=self.t_tcolor, bg=self.t_background)
         ttk.Label(fouframe, text="Suffix: ").grid(row=1, column=2, columnspan=3, sticky='nsew')
         self.fou_output_entry = ttk.Entry(fouframe, textvariable=self.fou_output, width=10)
-        self.fou_output_entry.grid(row=1, column=5, columnspan=6, sticky='nsew')
-        ToolTip(self.fou_output_entry, text='Suffix for the Fourier Transform results', delay=self.t_delay, font=(self.font_type, self.text_size, 'italic'), text_color=self.t_tcolor, background=self.t_background, borderwidth=2 , relief=self.t_relief, show_duration=self.t_show_duration)
-        ttk.Button(fouframe, text="Fourier Transform", style='function.TButton', command=self.fourier).grid(row=1, column=11, columnspan=6, sticky='nsew')
+        self.fou_output_entry.grid(row=1, column=5, columnspan=5, sticky='nsew')
+        ToolTip(self.fou_output_entry, msg='Suffix for the Fourier Transform results', fg=self.t_tcolor, bg=self.t_background)
+        ttk.Button(fouframe, text="Fourier Transform", style='function.TButton', command=self.fourier).grid(row=1, column=10, columnspan=7, sticky='nsew')
 
         
         for child in fouframe.winfo_children(): child.grid_configure(padx=5, pady=5)
@@ -1206,6 +1262,116 @@ class MainApp(ttk.Frame):
         self.lsd_outdir.set(fname)
         self.la_outdir.set(fname)
         return
+    
+    def change_cols(self, select_combobox):
+        selection = self.option_instr.get()
+        # self.option_values = ['UNDEF', 'ESPRESSO S1D', 'ESPRESSO S2D', 'GIANO-B MS1D', 'CARMENES', 'HARPS(N) S1D NEW DRS', 'HARPS(N) S2D NEW DRS'] 
+        # self.units_values = ['angstroms','nm','micron']
+        if selection == 'ESPRESSO S1D':
+            self.wavecol.set(1)
+            self.fluxcol.set(3)
+            self.snrcol.set(0)
+            self.errcol.set(4)
+            self.echcol.set(0)
+            self.spec_unit.set('a')
+            self.units_default.set(self.units_values[0])
+        elif selection == 'ESPRESSO S2D':
+            self.wavecol.set(4)
+            self.fluxcol.set(1)
+            self.snrcol.set(0)
+            self.errcol.set(2)
+            self.echcol.set(0)
+            self.spec_unit.set('a')
+            self.units_default.set(self.units_values[0])
+        elif selection == 'GIANO-B MS1D':
+            self.wavecol.set(2)
+            self.fluxcol.set(3)
+            self.snrcol.set(4)
+            self.errcol.set(0)
+            self.echcol.set(1)
+            self.spec_unit.set('n')
+            self.units_default.set(self.units_values[1])
+        elif selection == 'CARMENES':
+            self.wavecol.set(4)
+            self.fluxcol.set(1)
+            self.snrcol.set(0)
+            self.errcol.set(3)
+            self.echcol.set(0)
+            self.spec_unit.set('a')
+            self.units_default.set(self.units_values[0])
+        elif selection == 'HARPS(N) S1D NEW DRS':
+            self.wavecol.set(1)
+            self.fluxcol.set(3)
+            self.snrcol.set(0)
+            self.errcol.set(4)
+            self.echcol.set(0)
+            self.spec_unit.set('a')
+            self.units_default.set(self.units_values[0])
+        elif selection == 'HARPS(N) S2D NEW DRS':
+            self.wavecol.set(4)
+            self.fluxcol.set(1)
+            self.snrcol.set(0)
+            self.errcol.set(2)
+            self.echcol.set(0)
+            self.spec_unit.set('a')
+            self.units_default.set(self.units_values[0])
+        else:
+            self.wavecol.set(1)
+            self.fluxcol.set(2)
+            self.snrcol.set(0)
+            self.errcol.set(0)
+            self.echcol.set(0)
+            self.spec_unit.set('a')
+            self.units_default.set(self.units_values[0])
+        return
+ 
+    def change_units(self, select_combobox):
+        selection = self.units_default.get()
+        self.spec_unit.set(selection[0])
+        return
+        
+    def mask_change_units(self, select_combobox):
+        selection = self.mask_units_default.get()
+        self.mask_unit.set(selection[0])
+        return
+        
+    def change_frame(self, select_combobox):
+        selection = self.wave_frame.get()
+        if selection == self.wave_values[0]:
+            self.spec_vacuum.set(1)
+        else:
+            self.spec_vacuum.set(0)
+        return
+        
+    def mask_change_frame(self, select_combobox):
+        selection = self.mask_wave_frame.get()
+        if selection == self.mask_wave_values[0]:
+            self.mask_vacuum.set(1)
+        else:
+            self.mask_vacuum.set(0)
+        return
+
+    def option_la_change(self, select_combobox):
+        selection = self.option_limits.get()
+                
+        if selection == self.option_la_values[0]:
+            self.show_limitup.set(u'3 \u03c3')
+            self.show_limitlow.set(u'3 \u03c3')
+            self.usegauss.set(1)
+            self.userot.set(0)
+        elif selection == self.option_la_values[1]:
+            self.show_limitup.set('vsini')
+            self.show_limitlow.set('vsini')
+            self.usegauss.set(0)
+            self.userot.set(1)
+        else:
+            self.show_limitup.set(str(self.limitup.get()))
+            self.show_limitlow.set(str(self.limitlow.get()))
+            self.usegauss.set(0)
+            self.userot.set(0)
+        
+        return
+
         
     def lsd_load_indir(self):
         # select LSD input directory
@@ -1419,7 +1585,7 @@ class MainApp(ttk.Frame):
         self.ax.plot(xvalues,yvalues)
         if y_adds is not None:
             for y_add in y_adds:
-                self.ax.plot(xvalues,y_add)        
+                self.ax1.plot(xvalues,y_add)        
         for limit in limits:
             if limit is not None:
                 self.ax.axvline(limit)
@@ -1465,7 +1631,7 @@ class MainApp(ttk.Frame):
         basename = os.path.splitext(basename)[0]
         newname = ''.join((basename,suffix))
         newname = os.path.join(outdir,newname)
-        hdulist.writeto(newname,overwrite=True)
+        hdulist.writeto(newname,overwrite=True,output_verify='ignore')
         
         return
         
@@ -1485,15 +1651,7 @@ class MainApp(ttk.Frame):
                     pass
             hdu.flush()
         return
-        
-        
-    def nogauss(self):
-        self.usegauss.set(0)
-        return
-        
-    def norot(self):
-        self.userot.set(0)
-        return
+
         
     def sfx_lsd(self):
         self.lsd_output.set('_lsd.fits')    # suffix of the output LSD profiles
@@ -1540,7 +1698,7 @@ class MainApp(ttk.Frame):
                 break
             self.update_text(f"{n+1} of {n_spectra} spectra: working on spectrum {os.path.basename(spec)}.\n")
             spectrum = pa.read_spectrum(spec, unit=self.spec_unit.get(), wavecol=self.wavecol.get(), \
-                 fluxcol=self.fluxcol.get(), snrcol=self.snrcol.get(), echcol=self.echcol.get(), errcol=self.errcol.get())
+                 fluxcol=self.fluxcol.get(), snrcol=self.snrcol.get(), echcol=self.echcol.get(), errcol=self.errcol.get(), vacuum=bool(self.spec_vacuum.get()))
             nor = pa.norm_spectrum(spectrum['wave'], spectrum['flux'], spectrum['snr'], spectrum['echelle'],\
                 deg=self.degree.get(), n_ord=self.n_ord.get(), refine=self.refine.get(), output=False)
             hea = spectrum['header']
@@ -1639,7 +1797,8 @@ class MainApp(ttk.Frame):
             mask = pa.read_mask(maskfile, unit = self.mask_unit.get(), ele = self.mask_els.get(), \
                no_ele = self.mask_noels.get(), depths=(self.mask_dlow.get(),self.mask_dup.get()), \
                balmer = bool(self.mask_balmer.get()), tellurics = bool(self.mask_tell.get()), \
-               wmin = self.mask_wmin.get(), wmax = self.mask_wmax.get(), absorption = bool(self.mask_invert.get()))
+               wmin = self.mask_wmin.get(), wmax = self.mask_wmax.get(), \
+               invert = bool(self.mask_invert.get()), vacuum=bool(self.mask_vacuum.get()))
         except IsADirectoryError:
                self.update_text(f"No mask was defined. Aborted.\n")
                self.update_text("\n###########################\n", timestamp=False)
@@ -1738,7 +1897,7 @@ class MainApp(ttk.Frame):
         try:
             self.do_profile()
         except:
-            self.update_text("\n\n########################\nAborting the process.\nAre there any spectra with the same extension but different format?\n########################\n\n")
+            self.update_text("\n\n########################\nAborting the process.\nAre there any spectra with the same extension but different format?\n########################\nIs the mask/model covering at least part of the spectral range of the spectra?\n\n")
         self.thread_finished()        
         return
 
