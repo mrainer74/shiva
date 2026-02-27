@@ -47,7 +47,7 @@ from tkinter import ttk
 
 from tktooltip import ToolTip
 
-__version__ = "1.0.3"
+__version__ = "1.0.4"
 
 
 ############
@@ -953,7 +953,7 @@ class MainApp(ttk.Frame):
         
         # MESSAGE FRAME
         
-        self.messages_entry = tk.Text(msgframe, height=self.msgrows,width=40)
+        self.messages_entry = tk.Text(msgframe, height=self.msgrows,width=45)
         self.messages_entry.grid(row=0, rowspan=self.msgrows-1, column=0, columnspan=msgcols-1, sticky='nsew')
         
         # create a Scrollbar and associate it with txt
@@ -1877,7 +1877,7 @@ class MainApp(ttk.Frame):
                 self.xvalues = profile['rv_range']
                 self.yvalues = profile['profile']
                 self.y_add = None
-                self.y_red = None
+                self.y_res = None
                 self.ymin = None
                 self.ymax = None
                 self.limits = (None,None)
@@ -1984,7 +1984,7 @@ class MainApp(ttk.Frame):
                 self.xvalues = profile['rv_range']
                 self.yvalues = profile['profile']
                 self.y_add = None
-                self.y_red = None
+                self.y_res = None
                 self.ymin = None
                 self.ymax = None
                 self.limits = (None,None)
