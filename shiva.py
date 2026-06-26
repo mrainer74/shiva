@@ -24,9 +24,6 @@ import datetime
 import glob
 import warnings
 
-#import sys
-#sys.path.append("/home/monica/Documents/GitHub/shiva")
-#import test_parvati as pa
 import parvati as pa
 
 import numpy as np
@@ -47,7 +44,7 @@ from tkinter import ttk
 
 from tktooltip import ToolTip
 
-__version__ = "1.0.4"
+__version__ = "2.0.0"
 
 
 ############
@@ -863,11 +860,11 @@ class MainApp(ttk.Frame):
         ttk.Label(prfframe, text="D max: ").grid(row=1, column=8, columnspan=2, sticky='nse')
         self.mask_dup_entry = ttk.Entry(prfframe, textvariable=self.mask_dup, width=5)
         self.mask_dup_entry.grid(row=1, column=10, sticky='nsw')        
-        ToolTip(self.mask_dup_entry, msg='Maximum line depth of mask lines to be used', fg=self.t_tcolor, bg=self.t_background)
+        ToolTip(self.mask_dup_entry, msg='Maximum line depth of mask lines to be used, SAME WAVELENGTH UNIT AS THE MASK', fg=self.t_tcolor, bg=self.t_background)
         ttk.Label(prfframe, text="W min: ").grid(row=1, column=11, columnspan=2, sticky='nse')
         self.mask_wmin_entry = ttk.Entry(prfframe, textvariable=self.mask_wmin, width=5)
         self.mask_wmin_entry.grid(row=1, column=13, columnspan=1, sticky='nsw')     
-        ToolTip(self.mask_wmin_entry, msg='Minimum wavelength of mask lines to be used', fg=self.t_tcolor, bg=self.t_background)
+        ToolTip(self.mask_wmin_entry, msg='Minimum wavelength of mask lines to be used, SAME WAVELENGTH UNIT AS THE MASK', fg=self.t_tcolor, bg=self.t_background)
         ttk.Label(prfframe, text="W max: ").grid(row=1, column=14, columnspan=2, sticky='nse')
         self.mask_wmax_entry = ttk.Entry(prfframe, textvariable=self.mask_wmax, width=5)
         self.mask_wmax_entry.grid(row=1, column=16, columnspan=1, sticky='nsw')      
@@ -1816,7 +1813,7 @@ class MainApp(ttk.Frame):
                self.update_text("###########################\n\n", timestamp=False)
                return
         self.update_text(f"Read mask {os.path.basename(maskfile)}.\n") 
-        
+        #print(mask)
         # Iterate on normalised spectra: read the data, compute LSD, plot and save
         for n, spec in enumerate(spectra):
             if self.abort_value:
@@ -1827,11 +1824,12 @@ class MainApp(ttk.Frame):
             spectrum = pa.read_spectrum(spec, unit=self.lsd_spec_unit.get(), wavecol=self.lsd_wavecol.get(), \
                  fluxcol=self.lsd_fluxcol.get(), snrcol=self.lsd_snrcol.get(), nfluxcol=self.lsd_nfluxcol.get())
             try:
-                with fits.open(spec) as hdu:
-                    hea = hdu[0].header
+                #with fits.open(spec) as hdu:
+                #    hea = hdu[0].header
                 for jd_key in self.input_jd:
                     try:
-                        jd = hea[jd_key]
+                        #jd = hea[jd_key]
+                        jd = spectrum['header'][jd_key]
                         ori_jd_key = jd_key
                         break
                     except KeyError:
@@ -1841,13 +1839,13 @@ class MainApp(ttk.Frame):
                 jd = False
                 ori_jd_key = 'NONE'
                 
-            
             ### DEFINE LSD OR CCF
             if self.do_ccf.get():
                 profile = pa.compute_ccf(spectrum, mask, vrange=(self.rvmin.get(),self.rvmax.get()), step=self.rvstep.get(), mask_spectrum = bool(self.mask_spectrum.get()), cosmic=bool(self.cosmic.get()), clean=bool(self.clean.get()), weights=bool(self.ccfweight.get()), verbose=False, output=False)
             else:
                 profile = pa.compute_lsd(spectrum, mask, vrange=(self.rvmin.get(),self.rvmax.get()), step=self.rvstep.get(), cosmic=bool(self.cosmic.get()), clean=bool(self.clean.get()), verbose=False, output=False)
 
+            #print(profile)
             hea = fits.PrimaryHDU().header
             hea = self.insert_key(hea, self.key_ver[0], self.version, self.key_ver[1])
             hea = self.insert_key(hea, self.pa_ver[0], self.pa_version, self.pa_ver[1])
@@ -1952,11 +1950,12 @@ class MainApp(ttk.Frame):
             spectrum = pa.read_spectrum(spec, unit=self.lsd_spec_unit.get(), wavecol=self.lsd_wavecol.get(), \
                  fluxcol=self.lsd_fluxcol.get(), snrcol=self.lsd_snrcol.get(), nfluxcol=self.lsd_nfluxcol.get())
             try:
-                with fits.open(spec) as hdu:
-                    hea = hdu[0].header
+                #with fits.open(spec) as hdu:
+                #    hea = hdu[0].header
                 for jd_key in self.input_jd:
                     try:
-                        jd = hea[jd_key]
+                        #jd = hea[jd_key]
+                        jd = spectrum['header'][jd_key]
                         ori_jd_key = jd_key
                         break
                     except KeyError:
@@ -2159,26 +2158,69 @@ class MainApp(ttk.Frame):
                 errs = data.field(2)
             else:
                 errs = 0
-            fit_result = pa.fit_profile(vrad, flux, errs=errs, gauss=bool(self.fitgauss.get()), rot=bool(self.fitrot.get()), lorentz=bool(self.fitlorentz.get()), voigt=bool(self.fitvoigt.get()), rv0=self.rv0.get(), width=self.width.get(), ld=self.ld.get())
+            fit_result = {'gaussian' : {'profile' : np.ones(flux.shape),\
+                                         'rv': 0, 'e_rv': 0,\
+                                         'width': 0, \
+                                         'e_width': 0, \
+                                         'EW': 0, \
+                                         'e_EW': 0},\
+                          'lorentzian' : {'profile' : np.ones(flux.shape),\
+                                         'rv': 0, 'e_rv': 0,\
+                                         'width': 0, \
+                                         'e_width': 0, \
+                                         'EW': 0, \
+                                         'e_EW': 0},\
+                          'voigt' : {'profile' : np.ones(flux.shape),\
+                                         'rv': 0, 'e_rv': 0,\
+                                         'width': 0, \
+                                         'e_width': 0, \
+                                         'EW': 0, \
+                                         'e_EW': 0},\
+                          'rotational' : {'profile' : np.ones(flux.shape),\
+                                         'rv': 0, 'e_rv': 0,\
+                                         'width': 0, \
+                                         'e_width': 0, \
+                                         'EW': 0, \
+                                         'e_EW': 0}\
+                          }
             if self.fitgauss.get():
+                fit_single = pa.fit_profile(vrad, flux, errs=errs, fit='g',\
+                            rv0=self.rv0.get(), width=self.width.get(), ld=self.ld.get())
+                for key in fit_single[0]['gaussian']:
+                    fit_result['gaussian'][key] = fit_single[0]['gaussian'][key]
+                
                 self.update_text(f"Gaussian fit:\n")
                 self.update_text(f"RV = {np.round(fit_result['gaussian']['rv'],4)} +/- {np.round(fit_result['gaussian']['e_rv'],4)}  km/s\n", timestamp=False)
-                self.update_text(f"FWHM = {np.round(fit_result['gaussian']['fwhm'],4)} +/- {np.round(fit_result['gaussian']['e_fwhm'],4)}  km/s\n", timestamp=False)
+                self.update_text(f"FWHM = {np.round(fit_result['gaussian']['width'],4)} +/- {np.round(fit_result['gaussian']['e_width'],4)}  km/s\n", timestamp=False)
                 self.update_text(f"EW = {np.round(fit_result['gaussian']['EW'],4)} +/- {np.round(fit_result['gaussian']['e_EW'],4)}  km/s\n\n", timestamp=False)
             if self.fitlorentz.get():
+                for key in fit_single[0]['lorentzian']:
+                    fit_result['lorentzian'][key] = fit_single[0]['lorentzian'][key]
+                fit_single = pa.fit_profile(vrad, flux, errs=errs, fit='l',\
+                            rv0=self.rv0.get(), width=self.width.get(), ld=self.ld.get())
+                for key in fit_single[0]['lorentzian']:
+                    fit_result['lorentzian'][key] = fit_single[0]['lorentzian'][key]
                 self.update_text(f"Lorenztian fit:\n")
                 self.update_text(f"RV = {np.round(fit_result['lorentzian']['rv'],4)} +/- {np.round(fit_result['lorentzian']['e_rv'],4)}  km/s\n", timestamp=False)
-                self.update_text(f"FWHM = {np.round(fit_result['lorentzian']['fwhm'],4)} +/- {np.round(fit_result['lorentzian']['e_fwhm'],4)}  km/s\n", timestamp=False)
+                self.update_text(f"FWHM = {np.round(fit_result['lorentzian']['width'],4)} +/- {np.round(fit_result['lorentzian']['e_width'],4)}  km/s\n", timestamp=False)
                 self.update_text(f"EW = {np.round(fit_result['lorentzian']['EW'],4)} +/- {np.round(fit_result['lorentzian']['e_EW'],4)}  km/s\n\n", timestamp=False)
             if self.fitvoigt.get():
+                fit_single = pa.fit_profile(vrad, flux, errs=errs, fit='v',\
+                            rv0=self.rv0.get(), width=self.width.get(), ld=self.ld.get())
+                for key in fit_single[0]['voigt']:
+                    fit_result['voigt'][key] = fit_single[0]['voigt'][key]
                 self.update_text(f"Voigt fit:\n")
                 self.update_text(f"RV = {np.round(fit_result['voigt']['rv'],4)} +/- {np.round(fit_result['voigt']['e_rv'],4)}  km/s\n", timestamp=False)
-                self.update_text(f"FWHM = {np.round(fit_result['voigt']['fwhm'],4)} +/- {np.round(fit_result['voigt']['e_fwhm'],4)}  km/s\n", timestamp=False)
+                self.update_text(f"FWHM = {np.round(fit_result['voigt']['width'],4)} +/- {np.round(fit_result['voigt']['e_width'],4)}  km/s\n", timestamp=False)
                 self.update_text(f"EW = {np.round(fit_result['voigt']['EW'],4)} +/- {np.round(fit_result['voigt']['e_EW'],4)}  km/s\n\n", timestamp=False)
             if self.fitrot.get():
+                fit_single = pa.fit_profile(vrad, flux, errs=errs, fit='r',\
+                            rv0=self.rv0.get(), width=self.width.get(), ld=self.ld.get())
+                for key in fit_single[0]['rotational']:
+                    fit_result['rotational'][key] = fit_single[0]['rotational'][key]
                 self.update_text(f"Rotational fit:\n")
                 self.update_text(f"RV = {np.round(fit_result['rotational']['rv'],4)} +/- {np.round(fit_result['rotational']['e_rv'],4)}  km/s\n", timestamp=False)
-                self.update_text(f"Vsini = {np.round(fit_result['rotational']['vsini'],4)} +/- {np.round(fit_result['rotational']['e_vsini'],4)}  km/s\n", timestamp=False)
+                self.update_text(f"Vsini = {np.round(fit_result['rotational']['width'],4)} +/- {np.round(fit_result['rotational']['e_width'],4)}  km/s\n", timestamp=False)
                 self.update_text(f"EW = {np.round(fit_result['rotational']['EW'],4)} +/- {np.round(fit_result['rotational']['e_EW'],4)}  km/s\n", timestamp=False)
 
             hea = self.insert_key(hea, self.key_ver[0], self.version, self.key_ver[1])      
@@ -2191,26 +2233,26 @@ class MainApp(ttk.Frame):
             hea = self.insert_key(hea, self.key_wguess[0], self.width.get(), self.key_wguess[1])
             hea = self.insert_key(hea, self.key_gaussrv[0], fit_result['gaussian']['rv'], self.key_gaussrv[1])
             hea = self.insert_key(hea, self.key_gaussrverr[0], fit_result['gaussian']['e_rv'], self.key_gaussrverr[1])
-            hea = self.insert_key(hea, self.key_gaussfwhm[0], fit_result['gaussian']['fwhm'], self.key_gaussfwhm[0])
-            hea = self.insert_key(hea, self.key_gaussfwhmerr[0], fit_result['gaussian']['e_fwhm'], self.key_gaussfwhmerr[1])
+            hea = self.insert_key(hea, self.key_gaussfwhm[0], fit_result['gaussian']['width'], self.key_gaussfwhm[0])
+            hea = self.insert_key(hea, self.key_gaussfwhmerr[0], fit_result['gaussian']['e_width'], self.key_gaussfwhmerr[1])
             hea = self.insert_key(hea, self.key_gaussew[0], fit_result['gaussian']['EW'], self.key_gaussew[1])
             hea = self.insert_key(hea, self.key_gaussewerr[0], fit_result['gaussian']['e_EW'], self.key_gaussewerr[1])
             hea = self.insert_key(hea, self.key_lorentzrv[0], fit_result['lorentzian']['rv'], self.key_lorentzrv[1])
             hea = self.insert_key(hea, self.key_lorentzrverr[0], fit_result['lorentzian']['e_rv'], self.key_lorentzrverr[1])
-            hea = self.insert_key(hea, self.key_lorentzfwhm[0], fit_result['lorentzian']['fwhm'], self.key_lorentzfwhm[0])
-            hea = self.insert_key(hea, self.key_lorentzfwhmerr[0], fit_result['lorentzian']['e_fwhm'], self.key_lorentzfwhmerr[1])
+            hea = self.insert_key(hea, self.key_lorentzfwhm[0], fit_result['lorentzian']['width'], self.key_lorentzfwhm[0])
+            hea = self.insert_key(hea, self.key_lorentzfwhmerr[0], fit_result['lorentzian']['e_width'], self.key_lorentzfwhmerr[1])
             hea = self.insert_key(hea, self.key_lorentzew[0], fit_result['lorentzian']['EW'], self.key_lorentzew[1])
             hea = self.insert_key(hea, self.key_lorentzewerr[0], fit_result['lorentzian']['e_EW'], self.key_lorentzewerr[1])
             hea = self.insert_key(hea, self.key_voigtrv[0], fit_result['voigt']['rv'], self.key_voigtrv[1])
             hea = self.insert_key(hea, self.key_voigtrverr[0], fit_result['voigt']['e_rv'], self.key_voigtrverr[1])
-            hea = self.insert_key(hea, self.key_voigtfwhm[0], fit_result['voigt']['fwhm'], self.key_voigtfwhm[0])
-            hea = self.insert_key(hea, self.key_voigtfwhmerr[0], fit_result['voigt']['e_fwhm'], self.key_voigtfwhmerr[1])
+            hea = self.insert_key(hea, self.key_voigtfwhm[0], fit_result['voigt']['width'], self.key_voigtfwhm[0])
+            hea = self.insert_key(hea, self.key_voigtfwhmerr[0], fit_result['voigt']['e_width'], self.key_voigtfwhmerr[1])
             hea = self.insert_key(hea, self.key_voigtew[0], fit_result['voigt']['EW'], self.key_voigtew[1])
             hea = self.insert_key(hea, self.key_voigtewerr[0], fit_result['voigt']['e_EW'], self.key_voigtewerr[1])
             hea = self.insert_key(hea, self.key_rotrv[0], fit_result['rotational']['rv'], self.key_rotrv[1])
             hea = self.insert_key(hea, self.key_rotrverr[0], fit_result['rotational']['e_rv'], self.key_rotrverr[1])
-            hea = self.insert_key(hea, self.key_rotvsini[0], fit_result['rotational']['vsini'], self.key_rotvsini[1])
-            hea = self.insert_key(hea, self.key_rotvsinierr[0], fit_result['rotational']['e_vsini'], self.key_rotvsinierr[1])
+            hea = self.insert_key(hea, self.key_rotvsini[0], fit_result['rotational']['width'], self.key_rotvsini[1])
+            hea = self.insert_key(hea, self.key_rotvsinierr[0], fit_result['rotational']['e_width'], self.key_rotvsinierr[1])
             hea = self.insert_key(hea, self.key_rotew[0], fit_result['rotational']['EW'], self.key_rotew[1])
             hea = self.insert_key(hea, self.key_rotewerr[0], fit_result['rotational']['e_EW'], self.key_rotewerr[1])
                         

@@ -5,12 +5,15 @@ PARVATI may be either downloaded from [GitHub](https://github.com/mrainer74/parv
 python -m pip install parvati
 ```
 
+> [!IMPORTANT]
+> SHIVA v2.x works only with PARVATI >= 2.0.0, previous versions are incompatible with the new `fit_profile` function of PARVATI.
+
 ## Introduction
 SHIVA allows to use PARVATI with a detailed GUI where the user can set all the relevant parameters for the functions of PARVATI. It is possible to plot all the steps of the analysis, and everything is saved as FITS files with exhaustive headers.
 
 SHIVA requires the following Python packages:
 ```
-parvati >= 1.0.6
+parvati >= 2.0.0
 numpy >= 1.26.x
 astropy >= 7.x.x
 matplotlib >= 3.10
@@ -40,17 +43,17 @@ The normalised spectra are saved as FITS table with all the original information
 The numbers of columns/fields/hdus may be manually specified in the correspective entries OR the instrumentf may be selected from the scroll-down menu, and then the columns/fields/hdus are selected automatically.
 If the instrument is `UNDEF` then the data will be searched with the default options: monodimensional FITS file with CRVAL1, CDELT1, NAXIS1, e2ds FITS file from HARPS/HARPS-N/SOPHIE, FITS table with wavelength and flux in the field/hdu 1 and 2, ASCII file with wavelength and flux in columns 1 and 2.
 
-[!NOTE] 
-- the numbers of the ASCII columns and the FITS fields start with 1, not 0
-- instead, the number of the hdu is the correct one: in the case of different hdu, the Primary hdu[0] is always empty
-- always specify the right wavelength unit: [a]ngstroms, [n]anometers or [m]icrons
-- when working with merged echelle spectra, use the `Subsets` option to achieve a good result
-- when working only with single line extraction, the profile normalisation may be enough, so this step may be skipped or used with the parameters `Subsets=0` and `Degree=0`.
-[!TIP]
-Read the GIANO-B ms1d data with the options: Wave=2, Flux=3, S/N=4, Orders=1
-Read the ESPRESSO S1D data with the options: Wave=1, Flux=3, Errors=4
-Read the ESPRESSO S2D data with the options: Wave=4, Flux=1, Errors=2
-Read the CARMENES (VIS and NIR) data with the options: wavecol=4, fluxcol=1, errcol=3
+> [!NOTE] 
+> - the numbers of the ASCII columns and the FITS fields start with 1, not 0
+> - instead, the number of the hdu is the correct one: in the case of different hdu, the Primary hdu[0] is always empty
+> - always specify the right wavelength unit: [a]ngstroms, [n]anometers or [m]icrons
+> - when working with merged echelle spectra, use the `Subsets` option to achieve a good result
+> - when working only with single line extraction, the profile normalisation may be enough, so this step may be skipped or used with the parameters `Subsets=0` and `Degree=0`.
+> [!TIP]
+> Read the GIANO-B ms1d data with the options: Wave=2, Flux=3, S/N=4, Orders=1
+> Read the ESPRESSO S1D data with the options: Wave=1, Flux=3, Errors=4
+> Read the ESPRESSO S2D data with the options: Wave=4, Flux=1, Errors=2
+> Read the CARMENES (VIS and NIR) data with the options: wavecol=4, fluxcol=1, errcol=3
 
 ## Tab 2: Line Profile
 This tab manages the extraction of single spectroscopic lines or the creation of mean line profiles using either the LSD or CCF methods. See the PARVATI README file for information on the functions `extract_line`, `compute_lsd` and `compute_ccf`.
@@ -65,15 +68,15 @@ The resulting profiles may be analysed using several PARVATI functions. SHIVA re
 The profiles may be normalised with a simple linear fitting of the continuum, defined as the region outside the `RV min` and `RV max` parameters. 
 If more than one profile is given as input, then the `St. Dev.` option results in the computation of an average line profile and the standard deviation of all the profiles from the mean. This will saved in a `line_mean_std.txt` file (data), and a `line_mean_std.png` file (plot).
 The resulting profiles are saved as FITS tables.
-[!TIP]
-Using the `St. Dev.` option allows a quick look at the impact and location of any line profile variation.
+> [!TIP]
+> Using the `St. Dev.` option allows a quick look at the impact and location of any line profile variation.
 
 ### Tab 3b: Profile Fitting
 By default, all 4 possible functions (Gaussian, Lorentzian, Voigt, rotational) are used. If the guess RV value is outside the RV range of the profile, it will be automatically shifted to the middle of the profile when running the fit.
 Using the absolute errors of the flux to perform the fit will result in smaller errors on the fit if the flux errors are reliable, otherwise it is suggested to uncheck the `Use errors` option.
 The resulting fit profiles are saved as FITS tables, and the fitting parameters values are also saved in the input profile FITS files, updating only the header content.
-[!TIP]
-Always use either the Gaussian or rotational fit if the subsequent analysis steps (moments, bisector and Fourier Transform) are done. These fits will allow to better define the line limits.
+> [!TIP]
+> Always use either the Gaussian or rotational fit if you plan to perform also the subsequent analysis steps (moments, bisector and Fourier Transform). These fits will allow to better define the line limits.
 
 ### Tab 3c: Moments
 The first 5 line moments are computed (from m0 to m4), and the skewness and the kurtosis are derived from m3 and m4. 
