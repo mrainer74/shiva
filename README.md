@@ -6,7 +6,9 @@ python -m pip install parvati
 ```
 
 > [!IMPORTANT]
-> SHIVA v2.x works only with PARVATI >= 2.0.0, previous versions are incompatible with the new `fit_profile` function of PARVATI.
+> SHIVA >= v2 works only with PARVATI >= 2.0.0, previous versions are incompatible with the new `fit_profile` function of PARVATI.
+> SHIVA >= v3 moved from Tkinter to PyQT6
+
 
 ## Introduction
 SHIVA allows to use PARVATI with a detailed GUI where the user can set all the relevant parameters for the functions of PARVATI. It is possible to plot all the steps of the analysis, and everything is saved as FITS files with exhaustive headers.
@@ -17,18 +19,16 @@ parvati >= 2.0.0
 numpy >= 1.26.x
 astropy >= 7.x.x
 matplotlib >= 3.10
-threading
-python-tk : same version as python
-tktooltip >= 3.1
+PyQt6
 ```
 
-SHIVA has been tested on Linux (Ubuntu 24.04) and MacOS 26 (Tahoe) so far.
+SHIVA has been tested only on Linux (Ubuntu 24.04) so far.
 It is suggested to run SHIVA from a virtual environment. It does not need to be installed, it may be run with a simple command:
 ```
 python shiva.py
 ```
 
-SHIVA is organised in several tabs: a complete analysis from the reduced spectra to the profiles analysis should follow the numbering of the tabs. It is possible to work on a single spectrum or on all the spectra contained in a single directory.
+SHIVA is organised in several tabs: a complete analysis from the reduced spectra to the profiles analysis should follow the order of the tabs. It is possible to work on a single spectrum or on all the spectra contained in a single directory.
 All the input windows show tooltips with basic information on the input values.
 
 ## Tab 1: Normalisation
@@ -66,35 +66,35 @@ The resulting profiles may be analysed using several PARVATI functions. SHIVA re
 
 ### Tab 3a: Profile Normalisation
 The profiles may be normalised with a simple linear fitting of the continuum, defined as the region outside the `RV min` and `RV max` parameters. 
-If more than one profile is given as input, then the `St. Dev.` option results in the computation of an average line profile and the standard deviation of all the profiles from the mean. This will saved in a `line_mean_std.txt` file (data), and a `line_mean_std.png` file (plot).
+If more than one profile is given as input, then the `St. Dev.` option results in the computation of an average line profile and the standard deviation of all the profiles from the mean. They will saved in a `line_mean_std.txt` file.
 The resulting profiles are saved as FITS tables.
 > [!TIP]
 > Using the `St. Dev.` option allows a quick look at the impact and location of any line profile variation.
 
 ### Tab 3b: Profile Fitting
-By default, all 4 possible functions (Gaussian, Lorentzian, Voigt, rotational) are used. If the guess RV value is outside the RV range of the profile, it will be automatically shifted to the middle of the profile when running the fit.
+It is possible to fit up to 3 independent components (multiple spectroscopic system), choosing between all the available functions in PARVATI: Gaussian, Asymmetric Gaussian, Supergaussian, Lorentzian, Voigt, Rotational profile. If the guess RV value is outside the RV range of the profile, it will be automatically shifted to the minimum of the profile when running the fit.
 Using the absolute errors of the flux to perform the fit will result in smaller errors on the fit if the flux errors are reliable, otherwise it is suggested to uncheck the `Use errors` option.
-The resulting fit profiles are saved as FITS tables, and the fitting parameters values are also saved in the input profile FITS files, updating only the header content.
+The resulting fit profile is saved as an additional column in the input FITS profile, along with the fitting parameters values that are also saved by updating the header content.
 > [!TIP]
 > Always use either the Gaussian or rotational fit if you plan to perform also the subsequent analysis steps (moments, bisector and Fourier Transform). These fits will allow to better define the line limits.
 
 ### Tab 3c: Moments
 The first 5 line moments are computed (from m0 to m4), and the skewness and the kurtosis are derived from m3 and m4. 
-The line limits must be defined, either by inputting two fixed RV values (lower and upper limit) or by checking the `Gaussian` or `Rotational` box: when the `Gaussian` box is checked the line limits are defined as the Gaussian RV values +/- 3 sigma, while when the `Rotational` box is checked the line limits are defined as the rotational RV values +/- *v*sin*i*.
+The line limits must be defined, either by inputting two fixed RV values (lower and upper limit) or by selecting the `Gaussian` or `Rotational` parameter: when the `Gaussian` limits are chosen, the line limits are defined as the Gaussian RV values +/- 3 sigma, while when the `Rotational` limits are chosen, the line limits are defined as the rotational RV values +/- *v*sin*i*.
 The resulting values are saved as FITS tables, and the moments values are also saved in the input profile FITS files, updating only the header content.
 
 ### Tab 3d: Bisector
 The line bisector and the bisector's span are computed.
-The line limits must be defined, either by inputting two fixed RV values (lower and upper limit) or by checking the `Gaussian` or `Rotational` box: when the `Gaussian` box is checked the line limits are defined as the Gaussian RV values +/- 3 sigma, while when the `Rotational` box is checked the line limits are defined as the rotational RV values +/- *v*sin*i*.
+The line limits must be defined, either by inputting two fixed RV values (lower and upper limit) or by selecting the `Gaussian` or `Rotational` parameter: when the `Gaussian` limits are chosen, the line limits are defined as the Gaussian RV values +/- 3 sigma, while when the `Rotational` limits are chosen, the line limits are defined as the rotational RV values +/- *v*sin*i*.
 The resulting values are saved as FITS tables, and the moments values are also saved in the input profile FITS files, updating only the header content.
 
 ### Tab 3e: Fourier Transform
 The Fourier Transform (FT) of the symmetrised line is computed. The symmetrisation process yields another RV estimation, while the positions of the first 3 zeroes of the FT results in 3 estimation of the stellar *v*sin*i*, and average value and an indicator of differential rotation.
-The line limits must be defined, either by inputting two fixed RV values (lower and upper limit) or by checking the `Gaussian` or `Rotational` box: when the `Gaussian` box is checked the line limits are defined as the Gaussian RV values +/- 3 sigma, while when the `Rotational` box is checked the line limits are defined as the rotational RV values +/- *v*sin*i*.
+The line limits must be defined, either by inputting two fixed RV values (lower and upper limit) or by selecting the `Gaussian` or `Rotational` parameter: when the `Gaussian` limits are chosen, the line limits are defined as the Gaussian RV values +/- 3 sigma, while when the `Rotational` limits are chosen, the line limits are defined as the rotational RV values +/- *v*sin*i*.
 The resulting FTs are saved as FITS tables, and the relevant output values are also saved in the input profile FITS files, updating only the header content.
 
 ### Other tabs: plot and log
-The middle tabs of SHIVA display the plots generated by all the tabs (if the `Plot` parameter is checked) and a log of the process. The log may be saved as a text file using the `Save log` button.
+The right side of SHIVA display the plots generated by all the tabs and a log of the process. The log may be saved as a text file using the `Save log` button.
 
 ## Test files
 A few reduced echelle spectra and two VALD stellar masks are given in the `tests` directory, to help familiarising with SHIVA.
