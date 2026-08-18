@@ -44,10 +44,9 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolb
 import parvati as pa
 
 from PyQt6 import QtCore, QtWidgets
-
 from PyQt6.QtCore import Qt
 
-__version__ = '3.0.0'
+__version__ = '3.1.0'
 
 class Var:
     def __init__(self, value=None):
@@ -97,6 +96,10 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         self.key_prg = 'SP'
         self.sp_logo = 'sp_logo.png'
         self.outdir = 'shiva_output'
+        self.back = '#d5e6f5' # very light blue
+        self.color = '#cf0202' # dark red
+        self.runbutton = '#9bfaa1' # very light green
+        self.browse = '#f9fac3' # very light yellow 
         self.define_keys()
         self.define_entries()
         self.set_entries()
@@ -116,7 +119,7 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         self.key_nor = (f'HIERARCH {self.key_prg} NOR DEG', 'Polynomial degree for normalisation.')
         self.key_sub = (f'HIERARCH {self.key_prg} NOR SUBSETS', 'Subsets independently normalised.')
         self.key_refine = (f'HIERARCH {self.key_prg} NOR REFINE', 'Refined normalisation')
-        self.key_jd = (f'HIERARCH {self.key_prg} JD', 'JD value in inputs spectrum ')
+        self.key_jd = (f'HIERARCH {self.key_prg} JD', 'JD value in input spectrum ')
         self.key_swave = (f'HIERARCH {self.key_prg} WAVE UNITS', 'Wavelength unit (a=Angstrom, n=nanometer, m=micron)')
         
         # Line Profile
@@ -315,13 +318,18 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         self.ld3 = Var()
         self.resolution = Var()
         self.fit_errs = Var()
-        self.fit_output = Var()
         self.save_report = Var()
         self.la_limitlow = Var()
         self.la_limitup = Var()
-        self.mom_output = Var()
-        self.bis_output = Var()
-        self.fou_output = Var()
+        self.fou_output = Var()        
+        self.ts_indir = Var()
+        self.ts_spec = Var()
+        self.ts_outdir = Var()
+        self.ts_comp = Var()
+        self.ts_xplot = Var()
+        self.ts_yplot = Var()
+        self.ts_error = Var()
+        self.ts_save = Var()
         self.thread_running = Var()
         self.abort_value = Var()
 
@@ -334,6 +342,8 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         self.option_la_fit = ['Gaussian', 'Rotational', 'Lorentzian', 'Voigt', 'Asymmetric Gaussian', 'Supergaussian']
         self.option_la_fits = ['None','Gaussian', 'Rotational', 'Lorentzian', 'Voigt', 'Asymmetric Gaussian', 'Supergaussian']
         self.option_la_values = ['Gaussian', 'Rotational', 'Manual']
+        self.option_ts_plot = ['JD', 'RV', 'EW', 'width', 'm0_EW', 'm1_RV', 'm2_sigma', 'skewness', 'kurtosis', 'bispan', 'vsini_Fourier', 'q2/q1_Fourier']
+        self.option_ts_comp = ['1', '2', '3']
 
         self.nor_indir.set(self.basedir)
         self.nor_spec.set('*.fits')
@@ -415,12 +425,17 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         self.resolution.set(0)
         self.fit_errs.set(1)
         self.save_report.set(0)
-        self.la_limitlow.set(-80)
-        self.la_limitup.set(80)
-        self.fit_output.set('_fit.fits')
-        self.mom_output.set('_mom.fits')
-        self.bis_output.set('_bis.fits')
+        #self.la_limitlow.set(-80)
+        #self.la_limitup.set(80)
         self.fou_output.set('_fou.fits')
+        self.ts_indir.set(self.nor_outdir.get())
+        self.ts_spec.set('*_pfn.fits')
+        self.ts_outdir.set(self.nor_outdir.get())
+        self.ts_comp.set(self.option_ts_comp[0])
+        self.ts_xplot.set(self.option_ts_plot[0])
+        self.ts_yplot.set(self.option_ts_plot[1])
+        self.ts_error.set(0)
+        self.ts_save.set(0)
         self.thread_running.set(0)
         self.abort_value.set(False)
 
@@ -443,9 +458,11 @@ class ShivaQtApp(QtWidgets.QMainWindow):
 
         
         self.tab_widget = QtWidgets.QTabWidget()
+        self.tab_widget.setStyleSheet(f'QTabBar {{font: bold;}}')
         self.tab_widget.addTab(self.create_normalisation_tab(), 'Normalisation')
-        self.tab_widget.addTab(self.create_profile_tab(), 'Profile')
-        self.tab_widget.addTab(self.create_analysis_tab(), 'Line Analysis')
+        self.tab_widget.addTab(self.create_profile_tab(), 'Line Profile')
+        self.tab_widget.addTab(self.create_analysis_tab(), 'Line Profile Analysis')
+        self.tab_widget.addTab(self.create_timeseries_tab(), 'Time Series')
 
         #left_panel = QVBoxLayout()   
         #left_panel.addWidget(self.create_log_group())
@@ -478,6 +495,7 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         self.nor_indir_edit = QtWidgets.QLineEdit(self.nor_indir.get())
         self.nor_indir_edit.setToolTip('Folder with input FITS/ASCII spectra')
         browse_dir = QtWidgets.QPushButton('Browse')
+        browse_dir.setStyleSheet(f'QPushButton {{background-color: {self.browse};}}')
         browse_dir.clicked.connect(self.nor_load_indir)
         
         in_layout.addWidget(input_norm_label,0,0)
@@ -489,6 +507,7 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         self.nor_spec_edit = QtWidgets.QLineEdit(self.nor_spec.get())
         self.nor_spec_edit.setToolTip('Select pattern OR single FITS/ASCII spectrum')
         browse_file = QtWidgets.QPushButton('Browse')
+        browse_file.setStyleSheet(f'QPushButton {{background-color: {self.browse};}}')
         browse_file.clicked.connect(self.nor_load_file)
         
         in_layout.addWidget(spec_norm_label,1,0)
@@ -500,6 +519,7 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         self.nor_outdir_edit = QtWidgets.QLineEdit(self.nor_outdir.get())
         self.nor_outdir_edit.setToolTip('Output folder (it will be created if needed)')        
         browse_out = QtWidgets.QPushButton('Browse')
+        browse_out.setStyleSheet(f'QPushButton {{background-color: {self.browse};}}')
         browse_out.clicked.connect(self.nor_load_outdir)
 
         in_layout.addWidget(out_norm_label,2,0)
@@ -587,6 +607,7 @@ class ShivaQtApp(QtWidgets.QMainWindow):
 
  
         normalise_button = QtWidgets.QPushButton('Normalise spectra')
+        normalise_button.setStyleSheet(f'QPushButton {{background-color: {self.runbutton};}}')
         normalise_button.clicked.connect(self.thread_normalise)
         
         norpar_layout.addWidget(normalise_button,3,0,1,10)
@@ -604,13 +625,19 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         quit_layout = QtWidgets.QGridLayout()
         
         reset_button = QtWidgets.QPushButton('Reset')
+        reset_button.setStyleSheet(f'QPushButton {{background-color: {self.back}; color: {self.color};}}')
         reset_button.clicked.connect(self.reset)
+        reset_button.setToolTip('Reset all the fields to the default values\nClear the log and plot windows')
         
         abort_button = QtWidgets.QPushButton('ABORT')
+        abort_button.setStyleSheet(f'QPushButton {{background-color: {self.color}; color: {self.back}; font: bold;}}')
         abort_button.clicked.connect(self.abort)
+        abort_button.setToolTip('Abort the current process without exiting SHIVA')
         
         quit_button = QtWidgets.QPushButton('Quit')
+        quit_button.setStyleSheet(f'QPushButton {{background-color: {self.back}; color: {self.color};}}')
         quit_button.clicked.connect(self.quit_shiva)
+        quit_button.setToolTip('Quit SHIVA, aborting any current process')
         
         quit_layout.addWidget(reset_button,0,0)
         quit_layout.addWidget(abort_button,0,1)
@@ -643,6 +670,7 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         self.prf_indir_edit = QtWidgets.QLineEdit(self.prf_indir.get())
         self.prf_indir_edit.setToolTip('Directory with input normalised spectra')
         browse_dir = QtWidgets.QPushButton('Browse')
+        browse_dir.setStyleSheet(f'QPushButton {{background-color: {self.browse};}}')    
         browse_dir.clicked.connect(self.prf_load_indir)
         
         in_layout.addWidget(input_prf_label,0,0)
@@ -654,6 +682,7 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         self.prf_spec_edit = QtWidgets.QLineEdit(self.prf_spec.get())
         self.prf_spec_edit.setToolTip('Select pattern OR single normalised spectrum')
         browse_file = QtWidgets.QPushButton('Browse')
+        browse_file.setStyleSheet(f'QPushButton {{background-color: {self.browse};}}')    
         browse_file.clicked.connect(self.prf_load_file)
         in_layout.addWidget(spec_prf_label,1,0)
         in_layout.addWidget(self.prf_spec_edit,1,1)
@@ -664,6 +693,7 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         self.prf_outdir_edit = QtWidgets.QLineEdit(self.nor_outdir.get())
         self.prf_outdir_edit.setToolTip('Select output folder')        
         browse_out = QtWidgets.QPushButton('Browse')
+        browse_out.setStyleSheet(f'QPushButton {{background-color: {self.browse};}}')    
         browse_out.clicked.connect(self.prf_load_outdir)
 
         in_layout.addWidget(out_prf_label,2,0)
@@ -696,11 +726,12 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         self.rvstep_ext_spin.valueChanged.connect(self.change_rvstep)
         
         # Suffix
-        sfx_label = QtWidgets.QLabel("Suffix:", alignment=Qt.AlignmentFlag.AlignRight)
+        sfx_label = QtWidgets.QLabel("Output suffix:")
         self.ext_output_edit = QtWidgets.QLineEdit(self.ext_output.get())
         self.ext_output_edit.setToolTip('Suffix of the output FITS profiles')
 
         extract_button = QtWidgets.QPushButton('Extract line')
+        extract_button.setStyleSheet(f'QPushButton {{background-color: {self.runbutton};}}')
         extract_button.clicked.connect(self.thread_extract_line)
 
         ext_layout.addWidget(wave_label,0,0)
@@ -724,10 +755,11 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         # grid
         prf_layout = QtWidgets.QGridLayout()
         
-        mask_label = QtWidgets.QLabel("Mask:")
+        mask_label = QtWidgets.QLabel("Mask:", alignment=Qt.AlignmentFlag.AlignRight)
         self.mask_edit = QtWidgets.QLineEdit(self.mask.get())
-        self.mask_edit.setToolTip('Select mask (VALD file, 2-column ASCII file or standard FITS monodimensional spectrum)')
+        self.mask_edit.setToolTip('Select mask:\nVALD file\n2-column ASCII file\nstandard FITS monodimensional spectrum)')
         browse_mask = QtWidgets.QPushButton('Browse')
+        browse_mask.setStyleSheet(f'QPushButton {{background-color: {self.browse};}}')    
         browse_mask.clicked.connect(self.mask_load_file)        
         
         mask_invert_label = QtWidgets.QLabel("Invert:", alignment=Qt.AlignmentFlag.AlignRight)
@@ -804,9 +836,9 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         prf_cosmic_label = QtWidgets.QLabel("Cosmics:", alignment=Qt.AlignmentFlag.AlignRight)
         self.cosmic_box = QtWidgets.QCheckBox(); self.cosmic_box.setChecked(bool(self.cosmic.get()))
         self.cosmic_box.setToolTip('Remove cosmics from spectra via sigma clipping prior to compute the mean line profiles')
-        prf_clean_label = QtWidgets.QLabel("Clean spectra:", alignment=Qt.AlignmentFlag.AlignRight)
+        prf_clean_label = QtWidgets.QLabel("Smmoth spectra:", alignment=Qt.AlignmentFlag.AlignRight)
         self.clean_box = QtWidgets.QCheckBox(); self.clean_box.setChecked(bool(self.clean.get()))
-        self.clean_box.setToolTip('Clean the spectra via smoothing spline prior to compute the mean line profiles')
+        self.clean_box.setToolTip('Apply a smoothing spline to the spectra prior to compute the mean line profiles')
         prf_weight_label = QtWidgets.QLabel("S/N weigthed:", alignment=Qt.AlignmentFlag.AlignRight)
         self.ccfweight_box = QtWidgets.QCheckBox(); self.ccfweight_box.setChecked(bool(self.ccfweight.get()))
         self.ccfweight_box.setToolTip('CCF ONLY: use the normalised S/N values as weigths')
@@ -861,7 +893,7 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         
         
         # Suffix
-        sfx_prf_label = QtWidgets.QLabel("Suffix:", alignment=Qt.AlignmentFlag.AlignRight)
+        sfx_prf_label = QtWidgets.QLabel("Output suffix:")
         self.prf_output_edit = QtWidgets.QLineEdit(self.prf_output.get())
         self.prf_output_edit.setToolTip('Suffix of the output FITS mean line profiles')
 
@@ -871,9 +903,11 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         # Which profile to run
                 
         lsd_button = QtWidgets.QPushButton('Compute LSD')
+        lsd_button.setStyleSheet(f'QPushButton {{background-color: {self.runbutton};}}')
         lsd_button.clicked.connect(self.thread_do_lsd_profile)
 
         ccf_button = QtWidgets.QPushButton('Compute CCF')
+        ccf_button.setStyleSheet(f'QPushButton {{background-color: {self.runbutton};}}')
         ccf_button.clicked.connect(self.thread_do_ccf_profile)
 
         prf_layout.addWidget(lsd_button,10,0,1,4) 
@@ -887,13 +921,19 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         quit_layout = QtWidgets.QGridLayout()
         
         reset_button = QtWidgets.QPushButton('Reset')
+        reset_button.setStyleSheet(f'QPushButton {{background-color: {self.back}; color: {self.color};}}')
         reset_button.clicked.connect(self.reset)
+        reset_button.setToolTip('Reset all the fields to the default values\nClear the log and plot windows')
         
         abort_button = QtWidgets.QPushButton('ABORT')
+        abort_button.setStyleSheet(f'QPushButton {{background-color: {self.color}; color: {self.back}; font: bold;}}')
         abort_button.clicked.connect(self.abort)
+        abort_button.setToolTip('Abort the current process without exiting SHIVA')
         
         quit_button = QtWidgets.QPushButton('Quit')
+        quit_button.setStyleSheet(f'QPushButton {{background-color: {self.back}; color: {self.color};}}')
         quit_button.clicked.connect(self.quit_shiva)
+        quit_button.setToolTip('Quit SHIVA, aborting any current process')
         
         quit_layout.addWidget(reset_button,0,0)
         quit_layout.addWidget(abort_button,0,1)
@@ -927,6 +967,7 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         self.la_indir_edit = QtWidgets.QLineEdit(self.la_indir.get())
         self.la_indir_edit.setToolTip('Directory with input line profiles')
         browse_dir = QtWidgets.QPushButton('Browse')
+        browse_dir.setStyleSheet(f'QPushButton {{background-color: {self.browse};}}')    
         browse_dir.clicked.connect(self.la_load_indir)
         
         file_layout.addWidget(input_la_label,0,0)
@@ -938,6 +979,7 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         self.la_spec_edit = QtWidgets.QLineEdit(self.la_spec.get())
         self.la_spec_edit.setToolTip('Select pattern OR single line profile')
         browse_file = QtWidgets.QPushButton('Browse')
+        browse_file.setStyleSheet(f'QPushButton {{background-color: {self.browse};}}')    
         browse_file.clicked.connect(self.la_load_file)
         
         file_layout.addWidget(spec_la_label,1,0)
@@ -949,6 +991,7 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         self.la_outdir_edit = QtWidgets.QLineEdit(self.la_outdir.get())
         self.la_outdir_edit.setToolTip('Select output folder')        
         browse_out = QtWidgets.QPushButton('Browse')
+        browse_out.setStyleSheet(f'QPushButton {{background-color: {self.browse};}}')    
         browse_out.clicked.connect(self.la_load_outdir)
 
         file_layout.addWidget(out_la_label,2,0)
@@ -968,15 +1011,20 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         la_up_label = QtWidgets.QLabel("RV upper line limit:")                
         self.limitup_spin = QtWidgets.QDoubleSpinBox(); self.limitup_spin.setRange(-1e5, 1e5); self.limitup_spin.setValue(self.limitup.get())
         self.limitup_spin.setToolTip('Define the upper limit of the line, for continuum normalisation')
+        
+        self.limitlow_spin.valueChanged.connect(self.la_change_rvmin)
+        self.limitup_spin.valueChanged.connect(self.la_change_rvmax)
+        
         la_std_label = QtWidgets.QLabel("Time series StDev:")                
         self.std_box = QtWidgets.QCheckBox(); self.std_box.setChecked(bool(self.std.get()))
         self.std_box.setToolTip('Compute the standard deviation of the line profiles from their average, and save the data')
 
-        la_norprf_sfx_label = QtWidgets.QLabel("Suffix:")                
+        la_norprf_sfx_label = QtWidgets.QLabel("Output suffix:")                
         self.norprf_output_edit = QtWidgets.QLineEdit(self.norprf_output.get())
         self.norprf_output_edit.setToolTip('Suffix of the output FITS mean line profiles')
         
         norm_button = QtWidgets.QPushButton('Normalise profiles')
+        norm_button.setStyleSheet(f'QPushButton {{background-color: {self.runbutton};}}')
         norm_button.clicked.connect(self.thread_norm_profile)
         
         norm_layout.addWidget(la_low_label,0,0,1,2)
@@ -986,8 +1034,8 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         norm_layout.addWidget(la_std_label,0,6)
         norm_layout.addWidget(self.std_box,0,7)
 
-        norm_layout.addWidget(la_norprf_sfx_label,1,0) 
-        norm_layout.addWidget(self.norprf_output_edit,1,1,1,7)  
+        norm_layout.addWidget(la_norprf_sfx_label,1,0,1,2) 
+        norm_layout.addWidget(self.norprf_output_edit,1,2,1,6)  
         
         norm_layout.addWidget(norm_button,2,0,1,8)
         norm_group.setLayout(norm_layout)
@@ -1091,16 +1139,17 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         fit_layout.addWidget(self.res_spin,3,3)
 
 
-        la_fit_sfx_label = QtWidgets.QLabel("Suffix:")                
-        self.fit_output_edit = QtWidgets.QLineEdit(self.fit_output.get())
-        self.fit_output_edit.setToolTip('Suffix of the output FITS fit results')
+        la_fit_sfx_label = QtWidgets.QLabel("Save fit report:", alignment=Qt.AlignmentFlag.AlignRight)
+        self.save_report_box = QtWidgets.QCheckBox(); self.save_report_box.setChecked(bool(self.save_report.get()))
+        self.save_report_box.setToolTip('Save fit report as a text file')
         
         fit_button = QtWidgets.QPushButton('Fit line profiles')
+        fit_button.setStyleSheet(f'QPushButton {{background-color: {self.runbutton};}}')
         fit_button.clicked.connect(self.thread_fit_profile)
         
-        fit_layout.addWidget(la_fit_sfx_label,4,0)
-        fit_layout.addWidget(self.fit_output_edit,4,1,1,7)
-        fit_layout.addWidget(fit_button,5,0,1,8)        
+        fit_layout.addWidget(la_fit_sfx_label,3,4,1,3)
+        fit_layout.addWidget(self.save_report_box,3,7)
+        fit_layout.addWidget(fit_button,4,0,1,8)        
 
         fit_group.setLayout(fit_layout)
 
@@ -1114,11 +1163,14 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         self.la_limits_combo.setToolTip('Define the line limits by the prior fit or manually')
         
         la_low_lim_label = QtWidgets.QLabel("RV lower line limit:")
-        self.la_limitlow_spin = QtWidgets.QDoubleSpinBox(); self.la_limitlow_spin.setRange(-1e5, 1e5); self.la_limitlow_spin.setValue(self.la_limitlow.get())
+        self.la_limitlow_spin = QtWidgets.QDoubleSpinBox(); self.la_limitlow_spin.setRange(-1e5, 1e5); self.la_limitlow_spin.setValue(self.limitlow.get())
         self.la_limitlow_spin.setToolTip('Manually define the lower limit of the line, for line analysis - ONLY if Manual limits are selected')
         la_up_lim_label = QtWidgets.QLabel("RV upper line limit:")                
         self.la_limitup_spin = QtWidgets.QDoubleSpinBox(); self.la_limitup_spin.setRange(-1e5, 1e5); self.la_limitup_spin.setValue(self.limitup.get())
         self.la_limitup_spin.setToolTip('Manually define the upper limit of the line, for line analysis - ONLY if Manual limits are selected')
+
+        self.la_limitlow_spin.valueChanged.connect(self.la_change_rvmin)
+        self.la_limitup_spin.valueChanged.connect(self.la_change_rvmax)
 
         other_layout.addWidget(la_limits_label,0,0)
         other_layout.addWidget(self.la_limits_combo,0,1)
@@ -1127,38 +1179,31 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         other_layout.addWidget(la_up_lim_label,0,4)
         other_layout.addWidget(self.la_limitup_spin,0,5)
 
-        la_mom_sfx_label = QtWidgets.QLabel("Moments suffix:")                
-        self.mom_output_edit = QtWidgets.QLineEdit(self.mom_output.get())
-        self.mom_output_edit.setToolTip('Suffix of the output FITS moments results')
-        
-        mom_button = QtWidgets.QPushButton('Moments')
-        mom_button.clicked.connect(self.thread_moments)
-
-        la_bis_sfx_label = QtWidgets.QLabel("Bisector suffix:")                
-        self.bis_output_edit = QtWidgets.QLineEdit(self.bis_output.get())
-        self.bis_output_edit.setToolTip('Suffix of the output FITS bisector results')
-        
-        bis_button = QtWidgets.QPushButton('Bisector')
-        bis_button.clicked.connect(self.thread_bisector)
         
         la_fou_sfx_label = QtWidgets.QLabel("Fourier suffix:")                
         self.fou_output_edit = QtWidgets.QLineEdit(self.fou_output.get())
         self.fou_output_edit.setToolTip('Suffix of the output FITS Fourier results')
+
+        mom_button = QtWidgets.QPushButton('Moments')
+        mom_button.setStyleSheet(f'QPushButton {{background-color: {self.runbutton};}}')
+        mom_button.clicked.connect(self.thread_moments)
+        
+        bis_button = QtWidgets.QPushButton('Bisector')
+        bis_button.setStyleSheet(f'QPushButton {{background-color: {self.runbutton};}}')
+        bis_button.clicked.connect(self.thread_bisector)
         
         fou_button = QtWidgets.QPushButton('Fourier')
+        fou_button.setStyleSheet(f'QPushButton {{background-color: {self.runbutton};}}')
         fou_button.clicked.connect(self.thread_fourier)
+
+        other_layout.addWidget(la_fou_sfx_label,1,0)
+        other_layout.addWidget(self.fou_output_edit,1,1,1,5)        
+
+        other_layout.addWidget(mom_button,2,0,1,2)
         
-        other_layout.addWidget(la_mom_sfx_label,1,0)
-        other_layout.addWidget(self.mom_output_edit,1,1,1,4)
-        other_layout.addWidget(mom_button,1,5,1,3)
+        other_layout.addWidget(bis_button,2,2,1,2)
         
-        other_layout.addWidget(la_bis_sfx_label,2,0)
-        other_layout.addWidget(self.bis_output_edit,2,1,1,4)
-        other_layout.addWidget(bis_button,2,5,1,3)
-        
-        other_layout.addWidget(la_fou_sfx_label,3,0)
-        other_layout.addWidget(self.fou_output_edit,3,1,1,4)
-        other_layout.addWidget(fou_button,3,5,1,3)
+        other_layout.addWidget(fou_button,2,4,1,2)
 
         other_group.setLayout(other_layout)
 
@@ -1169,13 +1214,19 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         quit_layout = QtWidgets.QGridLayout()
         
         reset_button = QtWidgets.QPushButton('Reset')
+        reset_button.setStyleSheet(f'QPushButton {{background-color: {self.back}; color: {self.color};}}')
         reset_button.clicked.connect(self.reset)
+        reset_button.setToolTip('Reset all the fields to the default values\nClear the log and plot windows')
         
         abort_button = QtWidgets.QPushButton('ABORT')
+        abort_button.setStyleSheet(f'QPushButton {{background-color: {self.color}; color: {self.back}; font: bold;}}')
         abort_button.clicked.connect(self.abort)
+        abort_button.setToolTip('Abort the current process without exiting SHIVA')
         
         quit_button = QtWidgets.QPushButton('Quit')
+        quit_button.setStyleSheet(f'QPushButton {{background-color: {self.back}; color: {self.color};}}')
         quit_button.clicked.connect(self.quit_shiva)
+        quit_button.setToolTip('Quit SHIVA, aborting any current process')
         
         quit_layout.addWidget(reset_button,0,0)
         quit_layout.addWidget(abort_button,0,1)
@@ -1193,6 +1244,134 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         layout.addStretch()
         return tab
 
+
+    def create_timeseries_tab(self):
+        tab = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(tab)
+        
+        # Read profiles
+        file_group = QtWidgets.QGroupBox('Input/Output')
+                
+        file_layout = QtWidgets.QGridLayout()
+
+        input_ts_label = QtWidgets.QLabel("Input folder:")        
+        self.ts_indir_edit = QtWidgets.QLineEdit(self.ts_indir.get())
+        self.ts_indir_edit.setToolTip('Directory with input analyzed line profiles')
+        browse_dir = QtWidgets.QPushButton('Browse')
+        browse_dir.setStyleSheet(f'QPushButton {{background-color: {self.browse};}}')    
+        browse_dir.clicked.connect(self.ts_load_indir)
+        
+        file_layout.addWidget(input_ts_label,0,0)
+        file_layout.addWidget(self.ts_indir_edit,0,1)
+        file_layout.addWidget(browse_dir,0,2)
+
+        # File/pattern folder
+        spec_ts_label = QtWidgets.QLabel("File/Pattern:")        
+        self.ts_spec_edit = QtWidgets.QLineEdit(self.ts_spec.get())
+        self.ts_spec_edit.setToolTip('Select pattern OR single line profile')
+        browse_file = QtWidgets.QPushButton('Browse')
+        browse_file.setStyleSheet(f'QPushButton {{background-color: {self.browse};}}')    
+        browse_file.clicked.connect(self.ts_load_file)
+        
+        file_layout.addWidget(spec_ts_label,1,0)
+        file_layout.addWidget(self.ts_spec_edit,1,1)
+        file_layout.addWidget(browse_file,1,2)
+
+        # Output folder
+        out_ts_label = QtWidgets.QLabel("Output folder:")
+        self.ts_outdir_edit = QtWidgets.QLineEdit(self.ts_outdir.get())
+        self.ts_outdir_edit.setToolTip('Select output folder')        
+        browse_out = QtWidgets.QPushButton('Browse')
+        browse_out.setStyleSheet(f'QPushButton {{background-color: {self.browse};}}')    
+        browse_out.clicked.connect(self.ts_load_outdir)
+
+        file_layout.addWidget(out_ts_label,2,0)
+        file_layout.addWidget(self.ts_outdir_edit,2,1)
+        file_layout.addWidget(browse_out,2,2)
+        
+        file_group.setLayout(file_layout)
+
+        # Plot time series        
+        plot_group = QtWidgets.QGroupBox('Plot time series')
+        
+        plot_layout = QtWidgets.QGridLayout()
+
+        ts_xdata_label = QtWidgets.QLabel("X data:")    
+        
+        self.ts_xdata_combo = QtWidgets.QComboBox(); self.ts_xdata_combo.addItems(self.option_ts_plot); self.ts_xdata_combo.setCurrentText(self.ts_xplot.get()); self.ts_xdata_combo.currentTextChanged.connect(self.ts_xdata_change)
+        self.ts_xdata_combo.setToolTip('Data to be plotted on the x-axis')
+        
+        ts_ydata_label = QtWidgets.QLabel("Y data:")    
+        
+        self.ts_ydata_combo = QtWidgets.QComboBox(); self.ts_ydata_combo.addItems(self.option_ts_plot); self.ts_ydata_combo.setCurrentText(self.ts_yplot.get()); self.ts_ydata_combo.currentTextChanged.connect(self.ts_xdata_change)
+        self.ts_ydata_combo.setToolTip('Data to be plotted on the y-axis')
+                
+        ts_error_label = QtWidgets.QLabel("Plot errors:")
+        self.ts_error_box = QtWidgets.QCheckBox(); self.ts_error_box.setChecked(bool(self.ts_error.get()))
+        self.ts_error_box.setToolTip('Plot with errorbars')
+        
+        ts_comp_label = QtWidgets.QLabel("Fit component:")
+        self.ts_comp_combo = QtWidgets.QComboBox(); self.ts_comp_combo.addItems(self.option_ts_comp); self.ts_comp_combo.setCurrentText(self.ts_comp.get()); self.ts_comp_combo.currentTextChanged.connect(self.ts_comp_change)
+        self.ts_comp_combo.setToolTip('Fitting component - used ONLY if the data are from the fitting function: RV, EW, width')
+        
+        ts_save_label = QtWidgets.QLabel("Save time series:")
+        self.ts_save_box = QtWidgets.QCheckBox(); self.ts_save_box.setChecked(bool(self.ts_save.get()))
+        self.ts_save_box.setToolTip('Save the data as a txt file with 4 columns:\nx_data, x_err, y_data, y_err')
+                
+        plot_button = QtWidgets.QPushButton('Plot time series')
+        plot_button.setStyleSheet(f'QPushButton {{background-color: {self.runbutton};}}')
+        plot_button.clicked.connect(self.thread_plot_ts)
+        
+        plot_layout.addWidget(ts_xdata_label,0,0)
+        plot_layout.addWidget(self.ts_xdata_combo,0,1)
+        plot_layout.addWidget(ts_ydata_label,0,2)
+        plot_layout.addWidget(self.ts_ydata_combo,0,3)
+        plot_layout.addWidget(ts_error_label,0,4)
+        plot_layout.addWidget(self.ts_error_box,0,5)
+        plot_layout.addWidget(ts_comp_label,0,6)
+        plot_layout.addWidget(self.ts_comp_combo,0,7)
+        plot_layout.addWidget(ts_save_label,0,8) 
+        plot_layout.addWidget(self.ts_save_box,0,9)  
+        
+        plot_layout.addWidget(plot_button,1,0,1,10)
+        plot_group.setLayout(plot_layout)
+
+        # Reset, abort, quit
+        quit_group = QtWidgets.QGroupBox()
+
+        # quit parameters grid
+        quit_layout = QtWidgets.QGridLayout()
+        
+        reset_button = QtWidgets.QPushButton('Reset')
+        reset_button.setStyleSheet(f'QPushButton {{background-color: {self.back}; color: {self.color};}}')
+        reset_button.clicked.connect(self.reset)
+        reset_button.setToolTip('Reset all the fields to the default values\nClear the log and plot windows')
+        
+        abort_button = QtWidgets.QPushButton('ABORT')
+        abort_button.setStyleSheet(f'QPushButton {{background-color: {self.color}; color: {self.back}; font: bold;}}')
+        abort_button.clicked.connect(self.abort)
+        abort_button.setToolTip('Abort the current process without exiting SHIVA')
+        
+        quit_button = QtWidgets.QPushButton('Quit')
+        quit_button.setStyleSheet(f'QPushButton {{background-color: {self.back}; color: {self.color};}}')
+        quit_button.clicked.connect(self.quit_shiva)
+        quit_button.setToolTip('Quit SHIVA, aborting any current process')
+        
+        quit_layout.addWidget(reset_button,0,0)
+        quit_layout.addWidget(abort_button,0,1)
+        quit_layout.addWidget(quit_button,0,2)
+        
+        quit_group.setLayout(quit_layout)
+
+
+        layout.addWidget(file_group)
+        layout.addWidget(plot_group)
+        layout.addWidget(quit_group)
+        
+        layout.addStretch()
+        return tab
+
+
     def create_plot_group(self):
         group = QtWidgets.QGroupBox('Plots')
         layout = QtWidgets.QVBoxLayout(group)
@@ -1206,13 +1385,25 @@ class ShivaQtApp(QtWidgets.QMainWindow):
 
     def create_log_group(self):
         group = QtWidgets.QGroupBox('Messages')
+        #log_layout = QtWidgets.QGridLayout()
+        
         layout = QtWidgets.QVBoxLayout(group)
         self.log_text = QtWidgets.QTextEdit()
         self.log_text.setReadOnly(True)
         self.log_text.setPlainText(self.messages.get())
+        
+        log_reset_button = QtWidgets.QPushButton('Reset Log')
+        log_reset_button.setStyleSheet(f'QPushButton {{background-color: {self.browse};}}')    
+        log_reset_button.clicked.connect(self.reset_log)
+        log_reset_button.setToolTip('Clear the log window')
+        
         save_button = QtWidgets.QPushButton('Save Log')
+        save_button.setStyleSheet(f'QPushButton {{background-color: {self.browse};}}')    
         save_button.clicked.connect(self.save_log)
+        save_button.setToolTip('Save the current log as a text file')
+        
         layout.addWidget(self.log_text)
+        layout.addWidget(log_reset_button)
         layout.addWidget(save_button)
         return group
 
@@ -1249,7 +1440,7 @@ class ShivaQtApp(QtWidgets.QMainWindow):
     def update_log(self, message, timestamp=True):
         if timestamp:
             now = datetime.datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
-            formatted = ': '.join((now, message))
+            formatted = ':\n'.join((now, message))
         else:
             formatted = message
         self.log_signal.emit(formatted)
@@ -1264,16 +1455,22 @@ class ShivaQtApp(QtWidgets.QMainWindow):
             self.ax.plot([], [])
         self.canvas.draw()
 
-    def update_figure(self, xvalues, yvalues, x_adds=None, y_adds=None, y_res=None, ymin=None, ymax=None, limits=(None, None), logscale=False):
+    def update_figure(self, xvalues, yvalues, x_err=None, y_err=None, x_adds=None, y_adds=None, y_res=None, ymin=None, ymax=None, limits=(None, None), logscale=False):
         self.ax.clear()
         try:
             self.ax1.clear()
         except AttributeError:
             pass
         if y_res is None:
-            self.ax.plot(xvalues, yvalues)
+            if np.logical_and(x_err is None, y_err is None):
+                self.ax.plot(xvalues, yvalues)
+            else:
+                self.ax.errorbar(xvalues, yvalues, xerr=x_err, yerr=y_err, fmt='o')
         else:
-            self.ax.plot(xvalues, yvalues)
+            if np.logical_and(x_err is None, y_err is None):
+                self.ax.plot(xvalues, yvalues)
+            else:
+                self.ax.errorbar(xvalues, yvalues, xerr=x_err, yerr=y_err, fmt='o')
             self.ax.plot(xvalues, y_res)
         if y_adds is not None:
             if x_adds is not None:
@@ -1391,12 +1588,18 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         self.width.set(self.width_spin.value())
         self.ld.set(self.ld_spin.value())
         self.fit_errs.set(int(self.fit_errs_box.isChecked()))
-        self.fit_output.set(self.fit_output_edit.text())
-        self.la_limitlow.set(self.la_limitlow_spin.value())
-        self.la_limitup.set(self.la_limitup_spin.value())
-        self.mom_output.set(self.mom_output_edit.text())
-        self.bis_output.set(self.bis_output_edit.text())
+        self.save_report.set(int(self.save_report_box.isChecked()))
+        #self.la_limitlow.set(self.la_limitlow_spin.value())
+        #self.la_limitup.set(self.la_limitup_spin.value())
         self.fou_output.set(self.fou_output_edit.text())
+        self.ts_indir.set(self.ts_indir_edit.text())
+        self.ts_spec.set(self.ts_spec_edit.text())
+        self.ts_outdir.set(self.ts_outdir_edit.text())
+        self.ts_xplot.set(self.ts_xdata_combo.currentText())
+        self.ts_yplot.set(self.ts_ydata_combo.currentText())
+        self.ts_comp.set(self.ts_comp_combo.currentText())        
+        self.ts_error.set(int(self.ts_error_box.isChecked()))
+        self.ts_save.set(int(self.ts_save_box.isChecked()))
 
     def change_cols(self, selection):
         self.option_instr.set(selection)
@@ -1451,6 +1654,16 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         self.rvstep_ext_spin.setValue(selection)
         self.rvstep_prf_spin.setValue(selection)
 
+    def la_change_rvmin(self, selection):
+        self.limitlow.set(selection)
+        self.limitlow_spin.setValue(selection)
+        self.la_limitlow_spin.setValue(selection)
+        
+    def la_change_rvmax(self, selection):
+        self.limitup.set(selection)
+        self.limitup_spin.setValue(selection)
+        self.la_limitup_spin.setValue(selection)
+
     def option_la_change(self, selection):
         self.option_limits.set(selection)
 
@@ -1462,6 +1675,15 @@ class ShivaQtApp(QtWidgets.QMainWindow):
 
     def la_change_fit3(self, selection):
         self.option_fit3.set(selection)
+        
+    def ts_xdata_change(self, selection):
+        self.ts_xplot.set(selection)
+        
+    def ts_ydata_change(self, selection):
+        self.ts_yplot.set(selection)
+        
+    def ts_comp_change(self, selection):
+        self.ts_comp.set(selection)
 
     def nor_load_indir(self):
         dirname = QtWidgets.QFileDialog.getExistingDirectory(self, 'Select input directory', self.nor_indir.get() or self.basedir)
@@ -1560,14 +1782,18 @@ class ShivaQtApp(QtWidgets.QMainWindow):
             self.la_indir.set(dirname)
             self.la_outdir.set(dirname)
             self.la_outdir_edit.setText(dirname)
-
+            self.ts_indir_edit.setText(dirname)
+            self.ts_indir.set(dirname)
+            self.ts_outdir_edit.setText(dirname)
+            self.ts_outdir.set(dirname)
 
     def la_load_outdir(self):
         dirname = QtWidgets.QFileDialog.getExistingDirectory(self, 'Select output directory', self.la_outdir.get() or self.basedir)
         if dirname:
             self.la_outdir_edit.setText(dirname)
             self.la_outdir.set(dirname)
-
+            self.ts_indir_edit.setText(dirname)
+            self.ts_indir.set(dirname)
 
     def la_load_file(self):
         filename, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Select profile file', self.la_indir.get() or self.basedir)
@@ -1576,6 +1802,38 @@ class ShivaQtApp(QtWidgets.QMainWindow):
             self.la_spec.set(filename)
             self.la_indir_edit.setText(os.path.dirname(filename))
             self.la_indir.set(os.path.dirname(filename))
+            self.ts_spec_edit.setText(filename)
+            self.ts_spec.set(filename)
+            self.ts_indir_edit.setText(os.path.dirname(filename))
+            self.ts_indir.set(os.path.dirname(filename))
+
+    def ts_load_indir(self):
+        dirname = QtWidgets.QFileDialog.getExistingDirectory(self, 'Select input directory', self.ts_indir.get() or self.basedir)
+        if dirname:
+            self.ts_indir_edit.setText(dirname)
+            self.ts_indir.set(dirname)
+            self.ts_outdir.set(dirname)
+            self.ts_outdir_edit.setText(dirname)
+
+    def ts_load_outdir(self):
+        dirname = QtWidgets.QFileDialog.getExistingDirectory(self, 'Select output directory', self.ts_outdir.get() or self.basedir)
+        if dirname:
+            self.ts_outdir_edit.setText(dirname)
+            self.ts_outdir.set(dirname)
+
+    def ts_load_file(self):
+        filename, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Select profile file', self.ts_indir.get() or self.basedir)
+        if filename:
+            self.ts_spec_edit.setText(filename)
+            self.ts_spec.set(filename)
+            self.ts_indir_edit.setText(os.path.dirname(filename))
+            self.ts_indir.set(os.path.dirname(filename))
+
+    def reset_log(self):
+        self.sync_ui_values()
+        self.log_text.clear()
+        self.log_text.setPlainText(self.messages.get())
+        return
 
     def save_log(self):
         self.sync_ui_values()
@@ -1624,6 +1882,10 @@ class ShivaQtApp(QtWidgets.QMainWindow):
     def thread_fourier(self):
         self.sync_ui_values()
         self.run_in_thread(self.fourier)
+
+    def thread_plot_ts(self):
+        self.sync_ui_values()
+        self.run_in_thread(self.plot_ts)
 
     def run_in_thread(self, target):
         if self.thread_running.get():
@@ -1718,7 +1980,7 @@ class ShivaQtApp(QtWidgets.QMainWindow):
         self.update_log(f'Found {len(spectra)} spectra.')
         try:
             maskfile = self.find_file(self.mask.get())[0]
-            self.update_log(f'{self.mask_cflux.get()}')
+            #self.update_log(f'{self.mask_cflux.get()}')
             mask = pa.read_mask(maskfile, unit=self.mask_unit.get(), wavecol=int(self.mask_cwave.get()), fluxcol=int(self.mask_cflux.get()), ele=self.mask_els.get(), no_ele=self.mask_noels.get(), depths=(self.mask_dlow.get(), self.mask_dup.get()), balmer=bool(self.mask_balmer.get()), tellurics=bool(self.mask_tell.get()), wmin=self.mask_wmin.get(), wmax=self.mask_wmax.get(), invert=bool(self.mask_invert.get()), vacuum=bool(self.mask_vacuum.get()))
             self.update_log(f'Read mask {os.path.basename(maskfile)}.')
             #self.update_log(f'{mask}.')
@@ -1737,6 +1999,19 @@ class ShivaQtApp(QtWidgets.QMainWindow):
                 break
             self.update_log(f'Working on spectrum {n+1} of {len(spectra)}.')
             spectrum = pa.read_spectrum(spec, unit=self.prf_spec_unit.get(), wavecol=self.prf_wavecol.get(), fluxcol=self.prf_fluxcol.get(), snrcol=self.prf_snrcol.get(), nfluxcol=self.prf_nfluxcol.get())
+            try:
+                for jd_key in self.input_jd:
+                    try:
+                        jd = spectrum['header'][jd_key]
+                        ori_jd_key = jd_key
+                        break
+                    except KeyError:
+                        jd = False
+                        ori_jd_key = 'NONE'
+            except OSError:
+                jd = False
+                ori_jd_key = 'NONE'
+            
             if self.do_ccf.get():
                 profile = pa.compute_ccf(spectrum, mask, vrange=(self.rvmin.get(), self.rvmax.get()), step=self.rvstep.get(), mask_spectrum=bool(self.mask_spectrum.get()), cosmic=bool(self.cosmic.get()), clean=bool(self.clean.get()), weights=bool(self.ccfweight.get()), verbose=False, output=False)
             else:
@@ -1745,7 +2020,7 @@ class ShivaQtApp(QtWidgets.QMainWindow):
             hea = self.insert_key(hea, self.key_ver[0], self.version, self.key_ver[1])
             hea = self.insert_key(hea, self.pa_ver[0], self.pa_version, self.pa_ver[1])
             hea = self.insert_key(hea, ' '.join((root_key, self.key_lsdin[0])), os.path.basename(spec), self.key_lsdin[1])
-            hea = self.insert_key(hea, self.key_jd[0], False, ''.join((self.key_jd[1], 'NONE')))
+            hea = self.insert_key(hea, self.key_jd[0], jd, ''.join((self.key_jd[1],ori_jd_key)))
             hea = self.insert_key(hea, ' '.join((root_key, self.key_mask[0])), os.path.basename(maskfile), self.key_mask[1])
             hea = self.insert_key(hea, ' '.join((root_key, self.key_mask_invert[0])), bool(self.mask_invert.get()), self.key_mask_invert[1])
             hea = self.insert_key(hea, ' '.join((root_key, self.key_mask_spectrum[0])), bool(self.mask_spectrum.get()), self.key_mask_spectrum[1])
@@ -1791,12 +2066,25 @@ class ShivaQtApp(QtWidgets.QMainWindow):
                 break
             self.update_log(f'Working on spectrum {n+1} of {len(spectra)}.')
             spectrum = pa.read_spectrum(spec, unit=self.prf_spec_unit.get(), wavecol=self.prf_wavecol.get(), fluxcol=self.prf_fluxcol.get(), snrcol=self.prf_snrcol.get(), nfluxcol=self.prf_nfluxcol.get())
+            try:
+                for jd_key in self.input_jd:
+                    try:
+                        jd = spectrum['header'][jd_key]
+                        ori_jd_key = jd_key
+                        break
+                    except KeyError:
+                        jd = False
+                        ori_jd_key = 'NONE'
+            except OSError:
+                jd = False
+                ori_jd_key = 'NONE'
+            
             profile = pa.extract_line(spectrum, unit=self.prf_spec_unit.get(), w0=self.ext_wave.get(), vrange=(self.rvmin.get(), self.rvmax.get()), step=self.rvstep.get(), verbose=False, output=False)
             hea = fits.PrimaryHDU().header
             hea = self.insert_key(hea, self.key_ver[0], self.version, self.key_ver[1])
             hea = self.insert_key(hea, self.pa_ver[0], self.pa_version, self.pa_ver[1])
             hea = self.insert_key(hea, ' '.join((self.base_key['line'], self.key_lsdin[0])), os.path.basename(spec), self.key_lsdin[1])
-            hea = self.insert_key(hea, self.key_jd[0], False, ''.join((self.key_jd[1], 'NONE')))
+            hea = self.insert_key(hea, self.key_jd[0], jd, ''.join((self.key_jd[1],ori_jd_key)))
             hea = self.insert_key(hea, ' '.join((self.base_key['line'], self.key_rvmin[0])), self.rvmin.get(), self.key_rvmin[1])
             hea = self.insert_key(hea, ' '.join((self.base_key['line'], self.key_rvmax[0])), self.rvmax.get(), self.key_rvmax[1])
             hea = self.insert_key(hea, ' '.join((self.base_key['line'], self.key_rvstep[0])), self.rvstep.get(), self.key_rvstep[1])
@@ -1820,7 +2108,7 @@ class ShivaQtApp(QtWidgets.QMainWindow):
             return
         if self.std.get():
             stdbasedir = self.la_outdir.get()
-            stdbasename = os.path.join(stdbasedir, 'line_mean_std')
+            stdbasename = os.path.join(stdbasedir, f"{datetime.datetime.now().strftime('%Y-%m-%dT%H-%M-%S')}_line_mean_std")
             pfns, stds = pa.norm_profile(spectra, rvcol=1, prfcol=2, errcol=3, sfx=False, std=stdbasename, limits=(self.limitlow.get(), self.limitup.get()))
         else:
             pfns, stds = pa.norm_profile(spectra, rvcol=1, prfcol=2, errcol=3, sfx=False, std=False, limits=(self.limitlow.get(), self.limitup.get()))
@@ -1838,9 +2126,13 @@ class ShivaQtApp(QtWidgets.QMainWindow):
             hea = self.insert_key(hea, self.key_lnrvmax[0], self.limitup.get(), self.key_lnrvmax[1])
             self.save_fits(pfn, hea, spectra[n], self.la_outdir.get(), self.norprf_output.get())
             self.update_figure(pfn['rv_range'], pfn['profile'], y_adds=[pfn.get('nprofile')], ymin=None, ymax=None)
-            self.update_log(f'Profile {n+1} computed.')
+            self.update_log(f'Profile {n+1} normalised.')
         if self.std.get() and stds is not None:
             self.update_figure(stds['rv_mean'], stds['ccf_mean'], y_res=1+stds['std_dev'], ymin=None, ymax=None)
+        
+        self.ts_spec_edit.setText(f"*{self.norprf_output.get()}")
+        self.la_spec_edit.setText(f"*{self.norprf_output.get()}")
+        
         self.update_log('\n###########################', timestamp=False)
         self.update_log('  END normalising profiles ', timestamp=False)
         self.update_log('###########################\n', timestamp=False)
@@ -1988,7 +2280,7 @@ class ShivaQtApp(QtWidgets.QMainWindow):
             
             if self.save_report.get():
                 report_name = os.path.basename(spec)
-                report_name = os.splitext(report_name)[0]
+                report_name = os.path.splitext(report_name)[0]
                 report_name = ''.join((report_name,'_fit_report.txt'))
                 report_name = os.path.join(self.la_outdir.get(),  report_name)
                 with open(report_name, 'w') as fit_report:
@@ -2031,7 +2323,8 @@ class ShivaQtApp(QtWidgets.QMainWindow):
                 vsini = hea[self.key_fwhm1[0]]
                 limits = (x0 - vsini, x0 + vsini)
             else:
-                limits = (self.la_limitlow.get(), self.la_limitup.get())
+                #limits = (self.la_limitlow.get(), self.la_limitup.get())
+                limits = (self.limitlow.get(), self.limitup.get())
             mom = pa.moments(vrad, flux, errs=errs, limits=limits, normalise=True)
             hea = self.insert_key(hea, self.key_ver[0], self.version, self.key_ver[1])
             hea = self.insert_key(hea, self.pa_ver[0], self.pa_version, self.pa_ver[1])
@@ -2105,7 +2398,8 @@ class ShivaQtApp(QtWidgets.QMainWindow):
                 vsini = hea[self.key_fwhm1[0]]
                 limits = (x0 - vsini, x0 + vsini)
             else:
-                limits = (self.la_limitlow.get(), self.la_limitup.get())
+                #limits = (self.la_limitlow.get(), self.la_limitup.get())
+                limits = (self.limitlow.get(), self.limitup.get())
             bis = pa.bisector(vrad, flux, limits=limits)
             bis_dict = {'rv_range': bis['bisvel'], 'bisector': bis['bisflux'], 'error' : bis['biserr']}
             
@@ -2117,8 +2411,6 @@ class ShivaQtApp(QtWidgets.QMainWindow):
             hea = self.insert_key(hea, self.key_biserr[0], bis['e_bispan'], self.key_biserr[1])
             
             self.update_fits(spec, hea)
-                        
-            self.save_fits(bis_dict, hea, spec, self.la_outdir.get(), self.bis_output.get())
 
             #self.update_log(f"{bis}")
             self.update_figure(vrad, flux, x_adds=bis_dict['rv_range'], y_adds=[bis_dict['bisector']])
@@ -2159,11 +2451,11 @@ class ShivaQtApp(QtWidgets.QMainWindow):
                 vsini = hea[self.key_fwhm1[0]]
                 limits = (x0 - vsini, x0 + vsini)
             else:
-                limits = (self.la_limitlow.get(), self.la_limitup.get())
-            
-            self.update_log('1')
+                #limits = (self.la_limitlow.get(), self.la_limitup.get())
+                limits = (self.limitlow.get(), self.limitup.get())
+
             fou = pa.fourier(vrad, flux, errs=errs, limits=limits, ld=self.ld.get())
-            self.update_log('1')
+
             fou_dict = {'FFT_fr': fou['FFT_fr'], 'FFT_pow': fou['FFT_pow']}
             hea = self.insert_key(hea, self.key_ver[0], self.version, self.key_ver[1])
             hea = self.insert_key(hea, self.pa_ver[0], self.pa_version, self.pa_ver[1])
@@ -2200,17 +2492,133 @@ class ShivaQtApp(QtWidgets.QMainWindow):
                 self.update_figure(fou_dict['FFT_fr'], fou_dict['FFT_pow'], y_adds=[y_add], limits=fou['zeros'], logscale=True)
             
             self.update_log(f'Fourier transform computed for {os.path.basename(spec)}')
-            self.update_log(f"First zero vsini = {np.round(fou['vsini'][0],4)} +/- {np.round(fou['e_vsini'][0],4)} km/s\n", timestamp=False)
-            self.update_log(f"Mean vsini = {np.round(fou['mean_vsini'],4)} +/- {np.round(fou['e_mean_vsini'],4)} km/s\n", timestamp=False)
-            self.update_log(f"q2/q1 = {np.round(fou['ratio'],4)} +/- {np.round(fou['e_ratio'],4)} km/s\n\n", timestamp=False)
-            self.update_log(f"RV = {np.round(fou['rv'],4)} km/s\n\n", timestamp=False)
+            self.update_log(f"First zero vsini = {np.round(fou['vsini'][0],4)} +/- {np.round(fou['e_vsini'][0],4)} km/s", timestamp=False)
+            self.update_log(f"Mean vsini = {np.round(fou['mean_vsini'],4)} +/- {np.round(fou['e_mean_vsini'],4)} km/s", timestamp=False)
+            self.update_log(f"q2/q1 = {np.round(fou['ratio'],4)} +/- {np.round(fou['e_ratio'],4)} km/s", timestamp=False)
+            self.update_log(f"RV = {np.round(fou['rv'],4)} km/s", timestamp=False)
         
-        self.update_log('\n###########################\n', timestamp=False)
-        self.update_log('  END computing the Fourier Transform \n', timestamp=False)
-        self.update_log('###########################\n\n', timestamp=False)
+        self.update_log('\n###########################', timestamp=False)
+        self.update_log('  END computing the Fourier Transform ', timestamp=False)
+        self.update_log('###########################\n', timestamp=False)
+
+    def plot_ts(self):
+        #self.option_ts_plot = ['RV', 'EW', 'width', 'm0 (EW)', 'm1 (RV)', 'm2 (sigma)', 'skewness', 'kurtosis', 'bispan', 'vsini (Fourier)', 'q2/q1 (Fourier)']
+        #self.option_ts_comp = ['1', '2', '3']
+
+        self.update_log('\n###########################', timestamp=False)
+        self.update_log('  START plotting time series', timestamp=False)
+        self.update_log('###########################\n', timestamp=False)
+        
+        xdata = self.ts_xplot.get()
+        ydata = self.ts_yplot.get()
+        error = bool(self.ts_error.get())
+        comp = self.ts_comp.get()
+        save = bool(self.ts_save.get())
+
+        self.update_log(f'Plotting {xdata} vs. {ydata} - component {comp}')
+        self.update_log(f'With errors: {error}', timestamp=False)
+
+        kwds = {f'{self.option_ts_plot[0]}1' : (self.key_jd[0], None), \
+                f'{self.option_ts_plot[0]}2' : (self.key_jd[0], None), \
+                f'{self.option_ts_plot[0]}3' : (self.key_jd[0], None), \
+                f'{self.option_ts_plot[1]}1' : (self.key_rv1[0], self.key_rverr1[0]), \
+                f'{self.option_ts_plot[1]}2' : (self.key_rv2[0], self.key_rverr2[0]), \
+                f'{self.option_ts_plot[1]}3' : (self.key_rv3[0], self.key_rverr3[0]), \
+                f'{self.option_ts_plot[2]}1' : (self.key_fitew1[0], self.key_fitewerr1[0]), \
+                f'{self.option_ts_plot[2]}2' : (self.key_fitew2[0], self.key_fitewerr2[0]), \
+                f'{self.option_ts_plot[2]}3' : (self.key_fitew3[0], self.key_fitewerr3[0]), \
+                f'{self.option_ts_plot[3]}1' : (self.key_fwhm1[0], self.key_fwhmerr1[0]), \
+                f'{self.option_ts_plot[3]}2' : (self.key_fwhm2[0], self.key_fwhmerr2[0]), \
+                f'{self.option_ts_plot[3]}3' : (self.key_fwhm3[0], self.key_fwhmerr3[0]), \
+                f'{self.option_ts_plot[4]}1' : (self.key_mom0[0], self.key_mom0err[0]), \
+                f'{self.option_ts_plot[4]}2' : (self.key_mom0[0], self.key_mom0err[0]), \
+                f'{self.option_ts_plot[4]}3' : (self.key_mom0[0], self.key_mom0err[0]), \
+                f'{self.option_ts_plot[5]}1' : (self.key_mom1[0], self.key_mom1err[0]), \
+                f'{self.option_ts_plot[5]}2' : (self.key_mom1[0], self.key_mom1err[0]), \
+                f'{self.option_ts_plot[5]}3' : (self.key_mom1[0], self.key_mom1err[0]), \
+                f'{self.option_ts_plot[6]}1' : (self.key_mom2[0], self.key_mom2err[0]), \
+                f'{self.option_ts_plot[6]}2' : (self.key_mom2[0], self.key_mom2err[0]), \
+                f'{self.option_ts_plot[6]}3' : (self.key_mom2[0], self.key_mom2err[0]), \
+                f'{self.option_ts_plot[7]}1' : (self.key_momskew[0], self.key_momskewerr[0]), \
+                f'{self.option_ts_plot[7]}2' : (self.key_momskew[0], self.key_momskewerr[0]), \
+                f'{self.option_ts_plot[7]}3' : (self.key_momskew[0], self.key_momskewerr[0]), \
+                f'{self.option_ts_plot[8]}1' : (self.key_momkurt[0], self.key_momkurterr[0]), \
+                f'{self.option_ts_plot[8]}2' : (self.key_momkurt[0], self.key_momkurterr[0]), \
+                f'{self.option_ts_plot[8]}3' : (self.key_momkurt[0], self.key_momkurterr[0]), \
+                f'{self.option_ts_plot[9]}1' : (self.key_bispan[0], self.key_biserr[0]), \
+                f'{self.option_ts_plot[9]}2' : (self.key_bispan[0], self.key_biserr[0]), \
+                f'{self.option_ts_plot[9]}3' : (self.key_bispan[0], self.key_biserr[0]), \
+                f'{self.option_ts_plot[10]}1' : (self.key_fouvsini1[0], self.key_fouvsini1err[0]), \
+                f'{self.option_ts_plot[10]}2' : (self.key_fouvsini1[0], self.key_fouvsini1err[0]), \
+                f'{self.option_ts_plot[10]}3' : (self.key_fouvsini1[0], self.key_fouvsini1err[0]), \
+                f'{self.option_ts_plot[11]}1' : (self.key_fouratio[0], self.key_fouratioerr[0]), \
+                f'{self.option_ts_plot[11]}2' : (self.key_fouratio[0], self.key_fouratioerr[0]), \
+                f'{self.option_ts_plot[11]}3' : (self.key_fouratio[0], self.key_fouratioerr[0]) \
+                }
+                
+        key_xdata = kwds[f'{xdata}{comp}']
+        key_ydata = kwds[f'{ydata}{comp}']
+        #self.update_log(f"{key_xdata}", timestamp=False)
+        #self.update_log(f"{key_ydata}", timestamp=False)
+        
+        spectra = self.find_file(self.ts_spec.get(), self.ts_indir.get())
+        if not spectra:
+            self.update_log('No input found. Aborted.\n')
+            return
+        xvalues = np.arange(len(spectra), dtype='float')
+        yvalues = np.arange(len(spectra), dtype='float')
+        xerrvalues = np.zeros(len(spectra), dtype='float')
+        yerrvalues = np.zeros(len(spectra), dtype='float')
+        
+        print_xlog = False
+        print_ylog = False
+            
+        for n,spec in enumerate(spectra):
+            if self.abort_value.get():
+                self.update_log("Plotting time series aborted.\n")
+                self.abort_value.set(False)
+                break
+            with fits.open(spec) as hdu:
+                hea = hdu[0].header
+            if hea[key_xdata[0]]:
+                xvalues[n] = hea[key_xdata[0]]
+            else:
+                print_xlog = True
+
+            if hea[key_ydata[0]]:
+                yvalues[n] = hea[key_ydata[0]]
+            else:
+                print_ylog = True
+            if error:
+                try:
+                    xerrvalues[n] = hea[key_xdata[1]]
+                except ValueError:
+                    pass
+                try:
+                    yerrvalues[n] = hea[key_ydata[1]]
+                except ValueError:
+                    pass
+        if print_xlog:
+            self.update_log(f"No values found for {xdata}, incremental numbers will be used.", timestamp=False)
+        if print_ylog:
+            self.update_log(f"No values found for {ydata}, incremental numbers will be used.", timestamp=False)
+        
+        self.update_figure(xvalues, yvalues, x_err=xerrvalues, y_err=yerrvalues, ymin=None, ymax=None)
+        
+        if save:
+            savedata = np.vstack((xvalues, xerrvalues, yvalues, yerrvalues))            
+            outname = f"{datetime.datetime.now().strftime('%Y-%m-%dT%H-%M-%S')}_{xdata.replace('/','')}_vs_{ydata.replace('/','')}.txt"
+            outname = os.path.join(self.ts_outdir.get(), outname)
+            header = f'#1. {xdata} - 2. err. {xdata} - 3. {ydata} - 4. err. {ydata}'
+            np.savetxt(outname, np.transpose(savedata), header=header)
+
+        self.update_log('\n###########################', timestamp=False)
+        self.update_log('  END plotting time series', timestamp=False)
+        self.update_log('###########################\n', timestamp=False)
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication([])
+    app.setStyleSheet(f'QGroupBox {{font: bold;}}')
     window = ShivaQtApp()
     window.show()
     app.exec()
